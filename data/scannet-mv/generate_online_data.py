@@ -71,7 +71,7 @@ if __name__ == '__main__':
         print(scene_name)
         num_frames = len(os.listdir('2D/%s/color/' % scene_name))
         # Load scene axis alignment matrix
-        lines = open('3D/scans/%s/%s.txt' % (scene_name, scene_name)).readlines()
+        lines = open('scans/%s/%s.txt' % (scene_name, scene_name)).readlines()
         for line in lines:
             if 'axisAlignment' in line:
                 axis_align_matrix = [float(x) \
