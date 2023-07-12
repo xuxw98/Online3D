@@ -16,20 +16,18 @@ python download-scannet.py -o <ScanNet root> --type _2d-instance.zip
 
 **Step 2.** Process 3D data by running `python batch_load_scannet_data.py`, which will create a folder named `scannet_train_detection_data` here.
 
-**Step 3.** Extract the 2D label and instance zip file using its original zip name. 
-The 2D info structure follows:
+**Step 3.** Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
 
 ```
-├── 2D_info
-│   ├── scenexxxx_xx.sens
-│   ├── scenexxxx_xx_2d-label/label/xxxxxx.png
-│   ├── scenexxxx_xx_2d-instance/instance/xxxxxx.png
+2D_info
+├── scenexxxx_xx.sens
+├── scenexxxx_xx_2d-label/label/xxxxxx.png
+└── scenexxxx_xx_2d-instance/instance/xxxxxx.png
 ```
-
 
 Link or move the '2D_info' folder to this level of directory. 
  
-Process 2D data from 2D info by:
+Process 2D data by:
 ```
 python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_map_file ./meta_data/scannetv2-labels.combined.tsv --scene_index_file ./meta_data/scannet_train.txt
 ```
