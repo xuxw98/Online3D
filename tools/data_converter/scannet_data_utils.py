@@ -343,7 +343,7 @@ class ScanNetMVData(object):
         return np.load(box_file)
 
     def get_axis_align_matrix(self, idx):
-        matrix_file = osp.join(self.root_dir, '3D', 'scans', idx,
+        matrix_file = osp.join(self.root_dir, 'scans', idx,
                                f'{idx}.txt')
         mmcv.check_file_exist(matrix_file)
         # Load scene axis alignment matrix
@@ -385,6 +385,30 @@ class ScanNetMVData(object):
                 poses.append(pose)
         return point_paths, image_paths, box_masks, poses
     
+    def get_points_images_instance_semantic_masks_poses(self, idx):
+        point_paths = []
+        image_paths = []
+        instance_paths = []
+        semantic_paths = []
+        box_masks = []
+        poses = []
+        path = osp.join(self.root_dir, '2D', idx, 'point')
+        files = os.listdir(path); files.sort(key=lambda x: int(x.split('/')[-1][:-4]))
+        for file in files:
+            frame_id = int(file.split('.')[0])
+            if file.endswith('.npy') and (frame_id % self.interval == 0):
+                point_paths.append(osp.join('2D', idx, 'point', file))
+                image_paths.append(osp.join('2D', idx, 'color', file.replace('npy', 'jpg')))
+                instance_paths.append(osp.join('instance_mask', idx, file))
+                semantic_paths.append(osp.join('semantic_mask', idx, file))
+                box_masks.append(np.load(osp.join(path.replace('point', 'box_mask'), file)))
+                pose = np.asarray(
+                    [[float(x[0]), float(x[1]), float(x[2]), float(x[3])] for x in
+                    (x.split(" ") for x in open(osp.join(path.replace('point', 'pose'), file.replace('npy', 'txt'))).read().splitlines())]
+                )
+                poses.append(pose)
+        return point_paths, image_paths, instance_paths, semantic_paths, box_masks, poses
+    
     def align_poses(self, axis_align_matrix, poses):
         aligned_poses = []
         for pose in poses:
@@ -418,13 +442,16 @@ class ScanNetMVData(object):
             pc_info = {'num_features': 6, 'lidar_idx': sample_idx}
             info['point_cloud'] = pc_info
 
-            pts_paths, img_paths, box_masks, poses = self.get_points_images_masks_poses(sample_idx)
+            # pts_paths, img_paths, box_masks, poses = self.get_points_images_masks_poses(sample_idx)
+            pts_paths, img_paths, instance_paths, semantic_paths, box_masks, poses = self.get_points_images_instance_semantic_masks_poses(sample_idx)
             axis_align_matrix = self.get_axis_align_matrix(sample_idx)
             poses = self.align_poses(axis_align_matrix, poses)
             # TODO: check if any path is invalid
             info['poses'] = poses
             info['img_paths'] = img_paths
             info['pts_paths'] = pts_paths
+            info['instance_paths'] = instance_paths
+            info['semantic_paths'] = semantic_paths
             # info['box_masks'] = box_masks
 
             if has_label:
