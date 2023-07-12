@@ -472,8 +472,10 @@ class LoadAdjacentViewsFromFiles(object):
     def __init__(self,
                  coord_type,
                  num_frames=8,
-                 load_dim=6,
+                 load_dim=7,
                  use_dim=[0, 1, 2],
+                 num_sample=5000,
+                 interval=2,
                  shift_height=False,
                  use_color=False,
                  file_client_args=dict(backend='disk')):
@@ -487,7 +489,8 @@ class LoadAdjacentViewsFromFiles(object):
 
         self.coord_type = coord_type
         self.num_frames = num_frames
-        # choose the number of frames
+        self.num_sample = num_sample
+        self.interval = interval
         self.load_dim = load_dim
         self.use_dim = use_dim
         self.file_client_args = file_client_args.copy()
@@ -496,7 +499,9 @@ class LoadAdjacentViewsFromFiles(object):
 
     def _load_points(self, pts_filenames):
         # points: num_frames, 5000, 3+C
-        points = np.stack([np.load(info['filename']) for info in pts_filenames], axis=0)
+        points = [np.load(info['filename']) for info in pts_filenames]
+        points = [point[np.random.choice(point.shape[0],self.num_sample,replace=False)] for point in points]
+        points = np.stack(points, axis=0)
         return points
 
     def __call__(self, results):
@@ -518,7 +523,7 @@ class LoadAdjacentViewsFromFiles(object):
         box_masks = results['ann_info']['box_masks']
         if self.num_frames > 0:
             begin_idx = np.random.randint(0, len(pts_filenames))
-            keep_view_idx = np.arange(begin_idx, begin_idx + self.num_frames)
+            keep_view_idx = np.arange(begin_idx, begin_idx + self.num_frames * self.interval, self.interval)
             keep_view_idx %= len(pts_filenames)
             pts_filenames = [pts_filenames[idx] for idx in keep_view_idx]
             img_filenames = [img_filenames[idx] for idx in keep_view_idx]
@@ -591,8 +596,10 @@ class LoadAdjacentPointsFromFiles(object):
     def __init__(self,
                  coord_type,
                  num_frames=8,
-                 load_dim=6,
+                 load_dim=7,
                  use_dim=[0, 1, 2],
+                 num_sample=5000,
+                 interval=2,
                  shift_height=False,
                  use_color=False,
                  file_client_args=dict(backend='disk')):
@@ -606,7 +613,8 @@ class LoadAdjacentPointsFromFiles(object):
 
         self.coord_type = coord_type
         self.num_frames = num_frames
-        # choose the number of frames
+        self.num_sample = num_sample
+        self.interval = interval
         self.load_dim = load_dim
         self.use_dim = use_dim
         self.file_client_args = file_client_args.copy()
@@ -614,7 +622,9 @@ class LoadAdjacentPointsFromFiles(object):
 
     def _load_points(self, pts_filenames):
         # points: num_frames, 5000, 3+C
-        points = np.stack([np.load(info['filename']) for info in pts_filenames], axis=0)
+        points = [np.load(info['filename']) for info in pts_filenames]
+        points = [point[np.random.choice(point.shape[0],self.num_sample,replace=False)] for point in points]
+        points = np.stack(points, axis=0)
         return points
 
     def __call__(self, results):
@@ -634,7 +644,7 @@ class LoadAdjacentPointsFromFiles(object):
         box_masks = results['ann_info']['box_masks']
         if self.num_frames > 0:
             begin_idx = np.random.randint(0, len(pts_filenames))
-            keep_view_idx = np.arange(begin_idx, begin_idx + self.num_frames)
+            keep_view_idx = np.arange(begin_idx, begin_idx + self.num_frames * self.interval, self.interval)
             keep_view_idx %= len(pts_filenames)
             pts_filenames = [pts_filenames[idx] for idx in keep_view_idx]
             img_filenames = [img_filenames[idx] for idx in keep_view_idx]
