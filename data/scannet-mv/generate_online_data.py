@@ -6,6 +6,8 @@ import imageio
 import cv2
 import math
 import sys
+import mmcv
+from os import path as osp
 
 path_2d = './2D/'
 
@@ -29,7 +31,7 @@ def adjust_intrinsic(intrinsic, intrinsic_image_dim, image_dim):
     intrinsic[1, 2] *= float(image_dim[1] - 1) / float(intrinsic_image_dim[1] - 1)
     return intrinsic
 
-def depth_image_to_point_cloud(rgb, depth, K, pose):
+def depth_image_to_point_cloud(rgb, depth, K, pose, ins, sem):
     u = range(0, rgb.shape[1])
     v = range(0, rgb.shape[0])
     u, v = np.meshgrid(u, v)
@@ -57,7 +59,10 @@ def depth_image_to_point_cloud(rgb, depth, K, pose):
     G = np.ravel(rgb[:, :, 1])[valid]
     B = np.ravel(rgb[:, :, 2])[valid]
 
-    points = np.transpose(np.vstack((position[0:3, :], R, G, B, valid.nonzero()[0])))
+    I = np.ravel(ins[:, :])[valid]
+    S = np.ravel(sem[:, :])[valid]
+
+    points = np.transpose(np.vstack((position[0:3, :], R, G, B, valid.nonzero()[0], I, S)))
     return points
 
 if __name__ == '__main__':
@@ -65,7 +70,14 @@ if __name__ == '__main__':
     unify_dim = (640, 480)
     unify_intrinsic = adjust_intrinsic(make_intrinsic(577.870605,577.870605,319.5,239.5), [640,480], unify_dim)
     scene_names = f.readlines()
-    
+    try:
+        os.makedirs('instance_mask')
+    except:
+        pass
+    try:
+        os.makedirs('semantic_mask')
+    except:
+        pass
     for scene_name in scene_names:
         scene_name = scene_name[:-1]
         print(scene_name)
@@ -80,6 +92,14 @@ if __name__ == '__main__':
         axis_align_matrix = np.array(axis_align_matrix).reshape((4,4))
         sum_views = 0
         boxes = np.load('scannet_train_detection_data/'+scene_name+'_bbox.npy')
+        try:
+            os.makedirs('instance_mask/%s' % scene_name)
+        except:
+            pass
+        try:
+            os.makedirs('semantic_mask/%s' % scene_name)
+        except:
+            pass
         try:
             os.makedirs('2D/%s/point' % scene_name)
         except:
@@ -99,7 +119,9 @@ if __name__ == '__main__':
                 [[float(x[0]), float(x[1]), float(x[2]), float(x[3])] for x in
                 (x.split(" ") for x in open(posePath).read().splitlines())]
             )
-            pc = depth_image_to_point_cloud(img, depth, unify_intrinsic[:3,:3], pose)
+            ins = imageio.imread(f.replace('color','instance').replace('jpg','png'))
+            sem = imageio.imread(f.replace('color','label').replace('jpg','png'))
+            pc = depth_image_to_point_cloud(img, depth, unify_intrinsic[:3,:3], pose, ins, sem)
             # to skip bad point cloud
             if np.isnan(pc).any():
                 continue
@@ -283,5 +305,7 @@ if __name__ == '__main__':
                 if (pair1 or pair2 or pair3 or pair4) and pair5:
                     mask[j]=1
 
-            np.save('2D/%s/point/%s.npy' % (scene_name, frame_id), pc)
+            np.save('2D/%s/point/%s.npy' % (scene_name, frame_id), pc[:,:7])
+            np.save('instance_mask/%s/%s.npy' % (scene_name, frame_id), pc[:,7])
+            np.save('semantic_mask/%s/%s.npy' % (scene_name, frame_id), pc[:,8])
             np.save('2D/%s/box_mask/%s.npy' % (scene_name, frame_id), mask)
