@@ -307,7 +307,7 @@ class ScanNetMVData(object):
         split (str, optional): Set split type of the data. Default: 'train'.
     """
 
-    def __init__(self, root_path, split='train', interval=40):
+    def __init__(self, root_path, split='train', interval=20):
         self.root_dir = root_path
         self.split = split
         self.split_dir = osp.join(root_path)
