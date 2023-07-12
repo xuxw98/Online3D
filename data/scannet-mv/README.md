@@ -80,7 +80,6 @@ scannet
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
 ├── scannet_mv_infos_train.pkl
-├── scannet_mv_infos_val.pkl
-└── scannet_mv_infos_test.pkl
+└── scannet_mv_infos_val.pkl
 
 ```
