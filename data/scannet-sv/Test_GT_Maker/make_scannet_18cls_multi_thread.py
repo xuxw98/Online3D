@@ -691,8 +691,8 @@ def make_split(path_dict, split="train"):
 
 
 def main():
-    DATA_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv/scannet_frames_25k" # Replace it with the path to scannet_frames_25k
-    TARGET_DIR = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv/scannet_sv_18cls" # Replace it with the path to output path
+    DATA_PATH = "../scannet_frames_25k" # Replace it with the path to scannet_frames_25k
+    TARGET_DIR = "../scannet_sv_18cls" # Replace it with the path to output path
     RGB_PATH = "./color"
     DEPTH_PATH = "./depth"
     INSTANCE_PATH = "./instance"
