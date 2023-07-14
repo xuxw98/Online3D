@@ -46,7 +46,7 @@ python tools/create_data.py scannet --root-path ./data/scannet-mv --out-dir ./da
 **Final folder structure:**
 
 ```
-scannet
+scannet-mv
 ├── meta_data/
 ├── batch_load_scannet_data.py
 ├── load_scannet_data.py
