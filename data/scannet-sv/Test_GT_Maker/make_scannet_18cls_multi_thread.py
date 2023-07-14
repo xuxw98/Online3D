@@ -663,7 +663,7 @@ def make_split(path_dict, split="train"):
     TARGET_DIR = "%s_%s"%(TARGET_DIR,split)
     path_dict["TARGET_DIR"] = TARGET_DIR
     os.makedirs(TARGET_DIR,exist_ok=True)
-    f = open("/home/ubuntu/xxw/SmallDet/mmdetection3d/dataset/meta_data_OV3Det/scannetv2_%s.txt"%(split))
+    f = open("./%s.txt"%(split))
     scan_name_list = sorted(f.readlines())
 
     multi_process_parameter = []
