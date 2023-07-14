@@ -8,7 +8,7 @@ The processed data can be downloaded from xxx.
 **Step 2.** Process SV data by running `python Test_GT_Maker/make_scannet_18cls_multi_thread.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
 
 
-**Step 5.** Generate .pkl files by:
+**Step 3.** Generate .pkl files by:
 ```
 python tools/create_data.py scannet --root-path ./data/scannet-sv --out-dir ./data/scannet-sv --extra-tag scannet_sv
 ```
