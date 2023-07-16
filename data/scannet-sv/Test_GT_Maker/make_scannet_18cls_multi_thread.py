@@ -652,7 +652,7 @@ def process_cur_scan(cur_scan):
 
 def make_split(path_dict, split="train"):
     DATA_PATH = path_dict["DATA_PATH"]
-    TARGET_DIR = path_dict["TARGET_DIR"]
+    TARGET_DIR_PREFIX = path_dict["TARGET_DIR_PREFIX"]
     RGB_PATH = path_dict["RGB_PATH"]
     DEPTH_PATH = path_dict["DEPTH_PATH"]
     INSTANCE_PATH = path_dict["INSTANCE_PATH"]
@@ -660,7 +660,7 @@ def make_split(path_dict, split="train"):
     POSE_PATH = path_dict["POSE_PATH"]
 
     num_dict = {}
-    TARGET_DIR = "%s_%s"%(TARGET_DIR,split)
+    TARGET_DIR = "%s_%s"%(TARGET_DIR_PREFIX,split)
     path_dict["TARGET_DIR"] = TARGET_DIR
     os.makedirs(TARGET_DIR,exist_ok=True)
     f = open("./%s.txt"%(split))
@@ -692,7 +692,7 @@ def make_split(path_dict, split="train"):
 
 def main():
     DATA_PATH = "../scannet_frames_25k" # Replace it with the path to scannet_frames_25k
-    TARGET_DIR = "../scannet_sv_18cls" # Replace it with the path to output path
+    TARGET_DIR_PREFIX = "../scannet_sv_18cls" # Replace it with the path to output path
     RGB_PATH = "./color"
     DEPTH_PATH = "./depth"
     INSTANCE_PATH = "./instance"
@@ -700,7 +700,7 @@ def main():
     POSE_PATH = "./pose"
 
     path_dict = {"DATA_PATH": DATA_PATH,
-                "TARGET_DIR": TARGET_DIR,
+                "TARGET_DIR_PREFIX": TARGET_DIR_PREFIX,
                 "RGB_PATH": RGB_PATH,
                 "DEPTH_PATH": DEPTH_PATH,
                 "INSTANCE_PATH": INSTANCE_PATH,
