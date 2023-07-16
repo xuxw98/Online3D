@@ -583,7 +583,7 @@ def process_cur_scan(cur_scan):
         bbox_3d = get_3d_bbox(xyzrgb)
         #print(bbox_3d.shape)
 
-        if bbox_3d.shape[0] > 0 and bbox_2d.shape[0] > 0:
+        if bbox_3d.shape[0] > 0 and bbox_2d.shape[0] > 0 and bbox_3d_global.shape[0] > 0:
             bbox_3d = select_3d_bbox(bbox_3d, bbox_3d_global)
             bbox_3d[:,:3] -= xyz_offset
             xyzrgb[:,:3] -= xyz_offset
@@ -591,7 +591,7 @@ def process_cur_scan(cur_scan):
         else:
             continue
             
-        if bbox_3d.shape[0] > 0 and bbox_2d.shape[0] > 0:
+        if bbox_3d.shape[0] > 0 and bbox_2d.shape[0] > 0 and bbox_3d_global.shape[0] > 0:
             rgb_map_name_no = rgb_map_name.split(".")[0]
             
             bbox_2d_name = "%s_%s_2d_bbox"%(scan_name,rgb_map_name_no)
