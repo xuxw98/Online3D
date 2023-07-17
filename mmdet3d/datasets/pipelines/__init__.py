@@ -5,7 +5,7 @@ from .formating import Collect3D, DefaultFormatBundle, DefaultFormatBundle3D, Mu
 from .loading import (LoadAnnotations3D, LoadImageFromFileMono3D,
                       LoadMultiViewImageFromFiles, LoadPointsFromDict,
                       LoadPointsFromFile, LoadPointsFromMultiSweeps,
-                      NormalizePointsColor, PointSegClassMapping, 
+                      NormalizePointsColor, PointSegClassMapping, PointSegClassMappingV2,
                       LoadAdjacentPointsFromFiles,LoadAdjacentViewsFromFiles)
 from .test_time_aug import MultiScaleFlipAug3D
 # yapf: disable
@@ -17,7 +17,8 @@ from .transforms_3d import (AffineResize, BackgroundPointsFilter,
                             PointShuffle, PointsRangeFilter,
                             RandomDropPointsColor, RandomFlip3D,
                             RandomJitterPoints, RandomRotate, RandomShiftScale,
-                            RangeLimitedRandomCrop, VoxelBasedPointSampler)
+                            RangeLimitedRandomCrop, VoxelBasedPointSampler,
+                            BboxRecalculation, GlobalRotScaleTransV2)
 from .mv_augment import MultiImgsAug
 
 __all__ = [
@@ -32,5 +33,7 @@ __all__ = [
     'LoadImageFromFileMono3D', 'ObjectNameFilter', 'RandomDropPointsColor',
     'RandomJitterPoints', 'AffineResize', 'RandomShiftScale',
     'LoadPointsFromDict', 'MultiViewWrapper', 'RandomRotate',
-    'RangeLimitedRandomCrop','LoadAdjacentViewsFromFiles','MultiImgsAug',
+    'RangeLimitedRandomCrop','LoadAdjacentViewsFromFiles','MultiImgsAug','PointSegClassMappingV2',
+    'BboxRecalculation','GlobalRotScaleTransV2'
+
 ]

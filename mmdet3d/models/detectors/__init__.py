@@ -3,7 +3,10 @@ import imp
 from .base import Base3DDetector
 from .mink_online_v3FF import MinkOnline3DDetector_V3FF
 from .mink_online_v3 import MinkOnline3DDetector_V3
+from .td3d_instance_segmentor import TD3DInstanceSegmentor
+from .single_stage_sparse import SingleStageSparse3DDetector
 
 __all__ = [
-    'Base3DDetector', 'MinkOnline3DDetector_V3FF', 'MinkOnline3DDetector_V3'
+    'Base3DDetector', 'MinkOnline3DDetector_V3FF', 'MinkOnline3DDetector_V3',
+    'TD3DInstanceSegmentor', 'SingleStageSparse3DDetector'
 ]

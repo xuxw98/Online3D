@@ -14,6 +14,7 @@ from mmdet3d.datasets.pipelines.compose import Compose
 from mmdet.datasets.pipelines import RandomCrop, RandomFlip, Rotate
 from ..builder import OBJECTSAMPLERS, PIPELINES
 from .data_augment_utils import noise_per_object_v3_
+import torch
 
 
 @PIPELINES.register_module()
@@ -891,6 +892,164 @@ class GlobalRotScaleTrans(object):
         repr_str += f' translation_std={self.translation_std},'
         repr_str += f' shift_height={self.shift_height})'
         return repr_str
+    
+
+
+@PIPELINES.register_module()
+class GlobalRotScaleTransV2(object):
+    """Apply global rotation, scaling and translation to a 3D scene.
+
+    Args:
+        rot_range (list[float], optional): Range of rotation angle.
+            Defaults to [-0.78539816, 0.78539816] (close to [-pi/4, pi/4]).
+        scale_ratio_range (list[float], optional): Range of scale ratio.
+            Defaults to [0.95, 1.05].
+        translation_std (list[float], optional): The standard deviation of
+            translation noise applied to a scene, which
+            is sampled from a gaussian distribution whose standard deviation
+            is set by ``translation_std``. Defaults to [0, 0, 0]
+        shift_height (bool, optional): Whether to shift height.
+            (the fourth dimension of indoor points) when scaling.
+            Defaults to False.
+    """
+
+    def __init__(self,
+                 rot_range_z=[-0.78539816, 0.78539816],
+                 rot_range_x_y=[-0.1308, 0.1308],
+                 scale_ratio_range=[0.95, 1.05],
+                 translation_std=[0, 0, 0],
+                 shift_height=False):
+        seq_types = (list, tuple, np.ndarray)
+
+        self.rot_range_z = rot_range_z
+        self.rot_range_x_y = rot_range_x_y
+
+        assert isinstance(scale_ratio_range, seq_types), \
+            f'unsupported scale_ratio_range type {type(scale_ratio_range)}'
+        self.scale_ratio_range = scale_ratio_range
+
+        if not isinstance(translation_std, seq_types):
+            assert isinstance(translation_std, (int, float)), \
+                f'unsupported translation_std type {type(translation_std)}'
+            translation_std = [
+                translation_std, translation_std, translation_std
+            ]
+        assert all([std >= 0 for std in translation_std]), \
+            'translation_std should be positive'
+        self.translation_std = translation_std
+        self.shift_height = shift_height
+
+    def _trans_bbox_points(self, input_dict):
+        """Private function to translate bounding boxes and points.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after translation, 'points', 'pcd_trans'
+                and keys in input_dict['bbox3d_fields'] are updated
+                in the result dict.
+        """
+        translation_std = np.array(self.translation_std, dtype=np.float32)
+        trans_factor = np.random.normal(scale=translation_std, size=3).T
+
+        input_dict['points'].translate(trans_factor)
+        input_dict['pcd_trans'] = trans_factor
+        for key in input_dict['bbox3d_fields']:
+            input_dict[key].translate(trans_factor)
+
+    def _rot_bbox_points(self, input_dict):
+        """Private function to rotate bounding boxes and points.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after rotation, 'points', 'pcd_rotation'
+                and keys in input_dict['bbox3d_fields'] are updated
+                in the result dict.
+        """
+        noise_rotation_z = np.random.uniform(self.rot_range_z[0], self.rot_range_z[1])
+        noise_rotation_x = np.random.uniform(self.rot_range_x_y[0], self.rot_range_x_y[1])
+        noise_rotation_y = np.random.uniform(self.rot_range_x_y[0], self.rot_range_x_y[1])
+
+        rot_mat_T_z = input_dict['points'].rotate(noise_rotation_z, axis=2)
+        rot_mat_T_x = input_dict['points'].rotate(noise_rotation_x, axis=0) #todo: is axis=0 x?
+        rot_mat_T_y = input_dict['points'].rotate(noise_rotation_y, axis=1) #todo: similarly
+        input_dict['pcd_rotation'] = rot_mat_T_z @ rot_mat_T_x @ rot_mat_T_y
+        input_dict['pcd_rotation_angle'] = noise_rotation_z
+
+    def _scale_bbox_points(self, input_dict):
+        """Private function to scale bounding boxes and points.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after scaling, 'points'and keys in
+                input_dict['bbox3d_fields'] are updated in the result dict.
+        """
+        scale = input_dict['pcd_scale_factor']
+        points = input_dict['points']
+        points.scale(scale)
+        if self.shift_height:
+            assert 'height' in points.attribute_dims.keys(), \
+                'setting shift_height=True but points have no height attribute'
+            points.tensor[:, points.attribute_dims['height']] *= scale
+        input_dict['points'] = points
+
+        for key in input_dict['bbox3d_fields']:
+            input_dict[key].scale(scale)
+
+    def _random_scale(self, input_dict):
+        """Private function to randomly set the scale factor.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after scaling, 'pcd_scale_factor' are updated
+                in the result dict.
+        """
+        scale_factor = np.random.uniform(self.scale_ratio_range[0],
+                                         self.scale_ratio_range[1])
+        input_dict['pcd_scale_factor'] = scale_factor
+
+    def __call__(self, input_dict):
+        """Private function to rotate, scale and translate bounding boxes and
+        points.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Results after scaling, 'points', 'pcd_rotation',
+                'pcd_scale_factor', 'pcd_trans' and keys in
+                input_dict['bbox3d_fields'] are updated in the result dict.
+        """
+        if 'transformation_3d_flow' not in input_dict:
+            input_dict['transformation_3d_flow'] = []
+
+        self._rot_bbox_points(input_dict)
+
+        if 'pcd_scale_factor' not in input_dict:
+            self._random_scale(input_dict)
+        self._scale_bbox_points(input_dict)
+
+        self._trans_bbox_points(input_dict)
+
+        input_dict['transformation_3d_flow'].extend(['R', 'S', 'T'])
+        return input_dict
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(rot_range={self.rot_range},'
+        repr_str += f' scale_ratio_range={self.scale_ratio_range},'
+        repr_str += f' translation_std={self.translation_std},'
+        repr_str += f' shift_height={self.shift_height})'
+        return repr_str
+
 
 
 @PIPELINES.register_module()
@@ -1890,3 +2049,39 @@ class RandomShiftScale(object):
         repr_str += f'(shift_scale={self.shift_scale}, '
         repr_str += f'aug_prob={self.aug_prob}) '
         return repr_str
+    
+
+@PIPELINES.register_module()
+class BboxRecalculation(object):
+
+    def __call__(self, input_dict):
+        pts_instance_mask = torch.tensor(input_dict['pts_instance_mask'])
+
+        if torch.sum(pts_instance_mask == -1) != 0:
+            pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
+            pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)[
+                :, :-1
+            ]
+        else:
+            pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
+
+        points = input_dict['points'][:, :3].tensor
+        points_for_max = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
+        points_for_min = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
+        points_for_max[~pts_instance_mask_one_hot.bool()] = float('-inf')
+        points_for_min[~pts_instance_mask_one_hot.bool()] = float('inf')
+        bboxes_max = points_for_max.max(axis=0)[0]
+        bboxes_min = points_for_min.min(axis=0)[0]
+        bboxes_sizes = bboxes_max - bboxes_min
+        bboxes_centers = (bboxes_max + bboxes_min) / 2
+        bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
+        input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+
+        pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
+        pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
+        pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
+        assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
+        input_dict['gt_labels_3d'] = pts_semantic_mask_expand.max(axis=0)[0].numpy()
+        return input_dict
+
+

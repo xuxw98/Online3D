@@ -5,7 +5,8 @@ from os import path as osp
 
 import numpy as np
 
-from mmdet3d.core import instance_seg_eval, show_result, show_seg_result
+from mmdet3d.core import (
+    instance_seg_eval, instance_seg_eval_v2, show_result, show_seg_result)
 from mmdet3d.core.bbox import DepthInstance3DBoxes
 from mmseg.datasets import DATASETS as SEG_DATASETS
 from .builder import DATASETS
@@ -913,3 +914,126 @@ class ScanNetInstanceSegDataset(Custom3DSegDataset):
             raise NotImplementedError('show is not implemented for now')
 
         return ret_dict
+    
+@DATASETS.register_module()
+class ScanNetInstanceSegV2Dataset(ScanNetDataset):
+    VALID_CLASS_IDS = (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28,
+                       33, 34, 36, 39)
+
+    def _build_default_pipeline(self):
+        """Build the default pipeline for this dataset."""
+        pipeline = [
+            dict(
+                type='LoadPointsFromFile',
+                coord_type='DEPTH',
+                shift_height=False,
+                use_color=True,
+                load_dim=6,
+                use_dim=[0, 1, 2, 3, 4, 5]),
+            dict(
+                type='LoadAnnotations3D',
+                with_bbox_3d=False,
+                with_label_3d=False,
+                with_mask_3d=True,
+                with_seg_3d=True),
+            dict(
+                type='DefaultFormatBundle3D',
+                with_label=False,
+                class_names=self.CLASSES),
+            dict(
+                type='Collect3D',
+                keys=['points', 'pts_semantic_mask', 'pts_instance_mask'])
+        ]
+        return Compose(pipeline)
+
+    def evaluate(self,
+                 results,
+                 metric=None,
+                 options=None,
+                 logger=None,
+                 show=False,
+                 out_dir=None,
+                 pipeline=None):
+        """Evaluation in instance segmentation protocol.
+
+        Args:
+            results (list[dict]): List of results.
+            metric (str | list[str]): Metrics to be evaluated.
+            options (dict, optional): options for instance_seg_eval.
+            logger (logging.Logger | None | str): Logger used for printing
+                related information during evaluation. Defaults to None.
+            show (bool, optional): Whether to visualize.
+                Defaults to False.
+            out_dir (str, optional): Path to save the visualization results.
+                Defaults to None.
+            pipeline (list[dict], optional): raw data loading for showing.
+                Default: None.
+
+        Returns:
+            dict: Evaluation results.
+        """
+        assert isinstance(
+            results, list), f'Expect results to be list, got {type(results)}.'
+        assert len(results) > 0, 'Expect length of results > 0.'
+        assert len(results) == len(self.data_infos)
+        assert isinstance(
+            results[0], dict
+        ), f'Expect elements in results to be dict, got {type(results[0])}.'
+
+        load_pipeline = self._build_default_pipeline()
+        pred_instance_masks = [result['instance_mask'] for result in results]
+        pred_instance_labels = [result['instance_label'] for result in results]
+        pred_instance_scores = [result['instance_score'] for result in results]
+        gt_semantic_masks, gt_instance_masks = zip(*[
+            self._extract_data(
+                index=i,
+                pipeline=load_pipeline,
+                key=['pts_semantic_mask', 'pts_instance_mask'],
+                load_annos=True) for i in range(len(self.data_infos))
+        ])
+        ret_dict = instance_seg_eval_v2(
+            gt_semantic_masks,
+            gt_instance_masks,
+            pred_instance_masks,
+            pred_instance_labels,
+            pred_instance_scores,
+            valid_class_ids=self.VALID_CLASS_IDS,
+            class_labels=self.CLASSES,
+            options=options,
+            logger=logger)
+
+        if show:
+            self.show(results, out_dir)
+
+        return ret_dict
+
+    def show(self, results, out_dir, show=True, pipeline=None):
+        assert out_dir is not None, 'Expect out_dir, got none.'
+        load_pipeline = self._build_default_pipeline()
+        for i, result in enumerate(results):
+            data_info = self.data_infos[i]
+            pts_path = data_info['pts_path']
+            file_name = osp.split(pts_path)[-1].split('.')[0]
+            points, gt_instance_mask, gt_sem_mask = self._extract_data(
+                i, load_pipeline, ['points', 'pts_instance_mask', 'pts_semantic_mask'], load_annos=True)
+            points = points.numpy()
+            gt_inst_mask_final = np.zeros_like(gt_instance_mask)
+            for cls_idx in self.VALID_CLASS_IDS:
+                mask = gt_sem_mask == cls_idx
+                gt_inst_mask_final += mask.numpy()
+            gt_instance_mask[gt_inst_mask_final == 0] = -1
+
+            pred_instance_masks = result['instance_mask']
+            pred_instance_scores = result['instance_score']
+
+            pred_instance_masks_sort = pred_instance_masks[pred_instance_scores.argsort()]
+            pred_instance_masks_label = pred_instance_masks_sort[0].long() - 1
+            for i in range(1, pred_instance_masks_sort.shape[0]):
+                pred_instance_masks_label[pred_instance_masks_sort[i].bool()] = i
+
+            palette = np.random.random((max(max(pred_instance_masks_label) + 2, max(gt_instance_mask) + 2), 3)) * 255
+            palette[-1] = 255
+
+            show_seg_result(points, gt_instance_mask,
+                            pred_instance_masks_label, out_dir, file_name,
+                            palette)
