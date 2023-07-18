@@ -16,7 +16,6 @@ from ..builder import OBJECTSAMPLERS, PIPELINES
 from .data_augment_utils import noise_per_object_v3_
 import torch
 
-
 @PIPELINES.register_module()
 class RandomDropPointsColor(object):
     r"""Randomly set the color of points to all zeros.
@@ -1237,7 +1236,6 @@ class PointSample(object):
         self.num_points = num_points
         self.sample_range = sample_range
         self.replace = replace
-
     def _points_random_sampling(self,
                                 points,
                                 num_samples,
@@ -1306,7 +1304,6 @@ class PointSample(object):
 
         pts_instance_mask = results.get('pts_instance_mask', None)
         pts_semantic_mask = results.get('pts_semantic_mask', None)
-
         if pts_instance_mask is not None:
             pts_instance_mask = pts_instance_mask[choices]
             results['pts_instance_mask'] = pts_instance_mask

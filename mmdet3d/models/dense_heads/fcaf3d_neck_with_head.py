@@ -7,7 +7,8 @@ from mmdet.core.bbox.builder import BBOX_ASSIGNERS
 from mmcv.cnn import Scale, bias_init_with_prob
 
 from mmdet3d.core.bbox.structures import rotation_3d_in_axis
-from mmdet3d.ops.pcdet_nms import pcdet_nms_gpu, pcdet_nms_normal_gpu
+# from mmdet3d.ops.pcdet_nms import pcdet_nms_gpu, pcdet_nms_normal_gpu
+from mmcv.ops import nms3d, nms3d_normal
 
 
 @HEADS.register_module()
@@ -341,13 +342,13 @@ class Fcaf3DNeckWithHead(nn.Module):
             class_scores = scores[ids, i]
             class_bboxes = bboxes[ids]
             if yaw_flag:
-                nms_function = pcdet_nms_gpu
+                nms_function = nms3d
             else:
                 class_bboxes = torch.cat((
                     class_bboxes, torch.zeros_like(class_bboxes[:, :1])), dim=1)
-                nms_function = pcdet_nms_normal_gpu
+                nms_function = nms3d_normal
 
-            nms_ids, _ = nms_function(class_bboxes, class_scores, self.test_cfg.iou_thr)
+            nms_ids = nms_function(class_bboxes, class_scores, self.test_cfg.iou_thr)
             nms_bboxes.append(class_bboxes[nms_ids])
             nms_scores.append(class_scores[nms_ids])
             nms_labels.append(bboxes.new_full(class_scores[nms_ids].shape, i, dtype=torch.long))

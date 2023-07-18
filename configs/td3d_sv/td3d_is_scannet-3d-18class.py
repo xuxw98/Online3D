@@ -1,6 +1,6 @@
 voxel_size = .02
 padding = .08
-n_points = 100000
+n_points = 50000
 
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',
@@ -71,7 +71,7 @@ resume_from = None
 workflow = [('train', 1)]
 
 dataset_type = 'ScanNetInstanceSegV2Dataset'
-data_root = './data/scannet-sv/'
+data_root = './data/scannet-sv1/'
 
 train_pipeline = [
     dict(
@@ -147,11 +147,11 @@ data = dict(
     workers_per_gpu=10,
     train=dict(
         type='RepeatDataset',
-        times=10,
+        times=5,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'scannet_infos_train.pkl',
+            ann_file=data_root + 'scannet_sv_infos_train.pkl',
             pipeline=train_pipeline,
             filter_empty_gt=True,
             classes=class_names,
@@ -159,7 +159,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'scannet_infos_val.pkl',
+        ann_file=data_root + 'scannet_sv_infos_val.pkl',
         pipeline=test_pipeline,
         filter_empty_gt=False,
         classes=class_names,
@@ -168,7 +168,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'scannet_infos_val.pkl',
+        ann_file=data_root + 'scannet_sv_infos_val.pkl',
         pipeline=test_pipeline,
         filter_empty_gt=False,
         classes=class_names,

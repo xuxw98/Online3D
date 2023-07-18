@@ -13,7 +13,6 @@ from torch import distributed as dist
 
 from mmdet3d.datasets import build_dataset
 from mmdet3d.utils import find_latest_checkpoint
-#from mmdet3d.core.hook import SetEpochInfoHook
 from mmdet.core import DistEvalHook as MMDET_DistEvalHook
 from mmdet.core import EvalHook as MMDET_EvalHook
 from mmdet.datasets import build_dataloader as build_mmdet_dataloader
@@ -23,7 +22,6 @@ from mmseg.core import DistEvalHook as MMSEG_DistEvalHook
 from mmseg.core import EvalHook as MMSEG_EvalHook
 from mmseg.datasets import build_dataloader as build_mmseg_dataloader
 from mmseg.utils import get_root_logger as get_mmseg_root_logger
-from ..core.hook.set_epoch_info_hook import SetEpochInfoHook
 
 
 def init_random_seed(seed=None, device='cuda'):
@@ -283,8 +281,6 @@ def train_detector(model,
     if distributed:
         if isinstance(runner, EpochBasedRunner):
             runner.register_hook(DistSamplerSeedHook())
-
-    runner.register_hook(SetEpochInfoHook())
 
     # register eval hooks
     if validate:
