@@ -105,7 +105,7 @@ class Resnet_FPN_Backbone(BaseModule):
         )
 
     def init_weights(self):
-        ckpt_path = './work_dirs/img_backbone_pth/img_backbone.pth'
+        ckpt_path = './mmdet3d/models/backbones/img_backbone.pth'
         ckpt = torch.load(ckpt_path)
         load_state_dict(self, ckpt['model'], strict=False)
 

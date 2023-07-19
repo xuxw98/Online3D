@@ -1,5 +1,5 @@
 _base_ = ['fcaf3d.py']
-n_points = 100000
+n_points = 50000
 
 model = dict(
     neck_with_head=dict(
@@ -8,7 +8,7 @@ model = dict(
         loss_bbox=dict(with_yaw=False)))
 
 dataset_type = 'ScanNetDataset'
-data_root = './data/scannet-sv/'
+data_root = './data/scannet-sv1/'
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',
                'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
@@ -76,11 +76,11 @@ data = dict(
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
-        times=10,
+        times=5,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'scannet_infos_train.pkl',
+            ann_file=data_root + 'scannet_sv_infos_train.pkl',
             pipeline=train_pipeline,
             filter_empty_gt=True,
             classes=class_names,
@@ -88,7 +88,7 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'scannet_infos_val.pkl',
+        ann_file=data_root + 'scannet_sv_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,
@@ -96,7 +96,7 @@ data = dict(
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'scannet_infos_val.pkl',
+        ann_file=data_root + 'scannet_sv_infos_val.pkl',
         pipeline=test_pipeline,
         classes=class_names,
         test_mode=True,

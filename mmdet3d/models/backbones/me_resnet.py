@@ -121,3 +121,35 @@ class MEResNet3D(ResNetBase):
             raise ValueError(f'invalid depth={depth}')
 
         super(MEResNet3D, self).__init__(in_channels, n_outs)
+
+
+@BACKBONES.register_module()
+class MEFFResNet3D(MEResNet3D):
+    def forward(self, x: ME.SparseTensor, f):
+        """Forward pass of ResNet.
+
+        Args:
+            x (ME.SparseTensor): Input sparse tensor.
+
+        Returns:
+            list[ME.SparseTensor]: Output sparse tensors.
+        """
+        
+        outs = []
+        x = self.conv1(x)
+        x=f(x)
+        x = self.layer1(x)
+        outs.append(x)
+        if self.n_outs == 1:
+            return outs
+        x = self.layer2(x)
+        outs.append(x)
+        if self.n_outs == 2:
+            return outs
+        x = self.layer3(x)
+        outs.append(x)
+        if self.n_outs == 3:
+            return outs
+        x = self.layer4(x)
+        outs.append(x)
+        return outs

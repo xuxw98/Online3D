@@ -111,10 +111,7 @@ class MinkOnline3DDetector_V3(Base3DDetector):
                 self.conv_convert.append(nn.Identity())
         self.relu = ME.MinkowskiReLU()
         
-        # self.init_weights()
-
-    def set_epoch(self, epoch):
-        self.head.epoch = epoch        
+        # self.init_weights()     
 
     def extract_feat(self, points):
         """Extract features from points.

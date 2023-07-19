@@ -554,7 +554,7 @@ class ScanNetSVData(object):
     def get_aligned_box_label(self, idx):
         box_file = osp.join(self.split_dir, f'{idx}_bbox.npy')
         mmcv.check_file_exist(box_file)
-        return np.load(box_file).astype(np.int64)
+        return np.load(box_file)
 
     def get_images(self, idx):
         paths = []
@@ -609,7 +609,7 @@ class ScanNetSVData(object):
 
             pts_filename = osp.join(self.split_dir,
                                     f'{sample_idx}_pc.npy')
-            points = np.load(pts_filename)
+            points = np.load(pts_filename).astype(np.float32)
             mmcv.mkdir_or_exist(osp.join(self.save_path, 'points'))
             points.tofile(
                 osp.join(self.save_path, 'points', f'{sample_idx}.bin'))

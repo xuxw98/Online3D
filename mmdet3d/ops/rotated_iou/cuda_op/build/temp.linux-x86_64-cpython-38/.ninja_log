@@ -1,0 +1,5 @@
+# ninja log v5
+0	10188	1687535720945532873	/home/ubuntu/xxw/Online3D/SegGroup-scannet_roi/mmdet3d/ops/rotated_iou/cuda_op/build/temp.linux-x86_64-cpython-38/sort_vert_kernel.o	37feac0868e2a992
+0	16251	1687535727009512545	/home/ubuntu/xxw/Online3D/SegGroup-scannet_roi/mmdet3d/ops/rotated_iou/cuda_op/build/temp.linux-x86_64-cpython-38/sort_vert.o	efbb1d7f34d9d498
+1	11562	1687612357933099627	/home/ubuntu/xxw/Online3D/mmdetection3d/mmdet3d/ops/rotated_iou/cuda_op/build/temp.linux-x86_64-cpython-38/sort_vert_kernel.o	8e3c20699e974079
+0	16702	1687612363045078346	/home/ubuntu/xxw/Online3D/mmdetection3d/mmdet3d/ops/rotated_iou/cuda_op/build/temp.linux-x86_64-cpython-38/sort_vert.o	eb41dac1fbbb11d0

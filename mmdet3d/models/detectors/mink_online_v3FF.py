@@ -118,9 +118,6 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
         
         # self.init_weights()
 
-    def set_epoch(self, epoch):
-        self.head.epoch = epoch
-
     def init_weights(self, pretrained=None):
         self.img_backbone.init_weights()
         # self.img_neck.init_weights()
