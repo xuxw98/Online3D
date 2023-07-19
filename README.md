@@ -18,4 +18,10 @@ Train and evaluate TD3D-Online on ScanNet-MV from scratch:
 ```
 ```
 
-Online-tuning: TODO.
+Finetune and evaluate FCAF3D (trained with SVFF) on ScanNet-MV:
+```
+```
+
+Finetune and evaluate TD3D (trained with SVFF) on ScanNet-MV:
+```
+```
