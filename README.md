@@ -25,3 +25,6 @@ Finetune and evaluate FCAF3D (trained with SVFF) on ScanNet-MV:
 Finetune and evaluate TD3D (trained with SVFF) on ScanNet-MV:
 ```
 ```
+
+
+以上为工程部分（1、2、5、6）和之前做的方法部分（3、4），都弄完之后就可以做一下结合，把之前设计的方法用到SV-train MV-tuning的setting中。例如在SV上训练FCAF3D-FF（1），但是不直接在MV上finetune（5），而是给训好的FCAF3D-FF加上online的模块（如把conv模块当成0初始化的adapter插进网络，以及新增amodal head预测完整物体，设计帧间预测结果融合策略）再finetune
