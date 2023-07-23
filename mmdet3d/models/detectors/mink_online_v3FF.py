@@ -320,7 +320,7 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
             tuple_feats = [self.accumulate(accumulated_feats[i], x[i], i) for i in range(len(x))]
             return [tuple_feats[i][0] for i in range(len(x))], [tuple_feats[i][1] for i in range(len(x))]
 
-    def forward_train(self, points, img, gt_bboxes_3d, gt_labels_3d, box_masks, img_metas):
+    def forward_train(self, points, img, gt_bboxes_3d, gt_labels_3d, img_metas):
         """Forward of training.
 
         Args:

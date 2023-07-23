@@ -21,8 +21,14 @@ scannet-sv
 ├── scannet_frames_25k/
 ├── scannet_sv_18cls_train/
 ├── scannet_sv_18cls_val/
-├── Test_GT_Maker/
-│   ├── make_scannet_18cls_multi_thread.py
+│   ├── scenexxxx_xx_xxxxxx_2d_bbox.npy
+│   ├── scenexxxx_xx_xxxxxx_bbox.npy
+│   ├── scenexxxx_xx_xxxxxx_ins_label.npy
+│   ├── scenexxxx_xx_xxxxxx_pc.npy
+│   ├── scenexxxx_xx_xxxxxx_pose.txt
+│   ├── scenexxxx_xx_xxxxxx_sem_label.npy
+│   ├── scenexxxx_xx_xxxxxx.jpg
+├── Test_GT_Maker/make_scannet_18cls_multi_thread.py
 ├── scannet_sv_infos_train.pkl
 └── scannet_sv_infos_val.pkl
 

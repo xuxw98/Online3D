@@ -75,7 +75,7 @@ load_from = None
 resume_from = None
 workflow = [('train', 1)]
 
-dataset_type = 'ScanNetInstanceSegV2Dataset'
+dataset_type = 'ScanNetSVInstanceSegV2Dataset'
 data_root = './data/scannet-sv1/'
 
 train_pipeline = [
@@ -94,8 +94,9 @@ train_pipeline = [
         with_seg_3d=True),
     dict(
         type='Resize',
-        img_scale=[(1333, 480), (1333, 504), (1333, 528), (1333, 552),
-                   (1333, 576), (1333, 600)],
+        img_scale=[(1333, 600)],
+        # img_scale=[(1333, 480), (1333, 504), (1333, 528), (1333, 552),
+        #           (1333, 576), (1333, 600)],
         multiscale_mode='value',
         keep_ratio=True),
     dict(type='Normalize', **img_norm_cfg),

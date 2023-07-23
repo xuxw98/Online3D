@@ -14,9 +14,7 @@ python download-scannet.py -o <ScanNet root> --type _2d-label.zip
 python download-scannet.py -o <ScanNet root> --type _2d-instance.zip
 ```
 
-**Step 2.** Process 3D data by running `python batch_load_scannet_data.py`, which will create a folder named `scannet_train_detection_data` here.
-
-**Step 3.** Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
+**Step 2.** Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
 
 ```
 2D_info
@@ -32,12 +30,12 @@ Process 2D data by:
 python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_map_file ./meta_data/scannetv2-labels.combined.tsv --scene_index_file ./meta_data/scannet_train.txt
 ```
 
-**Step 4.** Generate online data by:
+**Step 3.** Generate online data by:
 ```
-python generate_online_data.py
+python Test_GT_Maker/generate_online_data.py
 ```
 
-**Step 5.** Generate .pkl files by:
+**Step 4.** Generate .pkl files by:
 ```
 python tools/create_data.py scannet --root-path ./data/scannet-mv --out-dir ./data/scannet-mv --extra-tag scannet_mv
 ```
@@ -64,17 +62,21 @@ scannet-mv
 │   │   ├── instance
 │   │   │   ├── xxxxxx.png
 │   │   ├── pose
-│   │   │   ├── xxxxxx.txt
-│   │   ├── point
-│   │   │   ├── xxxxxx.npy
-│   │   └── box_mask
-│   │       ├── xxxxxx.npy
-├── scannet_train_detection_data
-│   ├── scenexxxx_xx_bbox.npy
+│   │       ├── xxxxxx.txt
+├── Test_GT_Maker/generate_online_data.py
 ├── instance_mask
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
 ├── semantic_mask
+│   ├── scenexxxx_xx
+│   │   ├── xxxxxx.npy
+├── point
+│   ├── scenexxxx_xx
+│   │   ├── xxxxxx.npy
+├── box
+│   ├── scenexxxx_xx
+│   │   ├── xxxxxx.npy
+├── amodal_box
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
 ├── scannet_mv_infos_train.pkl

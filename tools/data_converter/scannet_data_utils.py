@@ -368,46 +368,50 @@ class ScanNetMVData(object):
     def get_points_images_masks_poses(self, idx):
         point_paths = []
         image_paths = []
-        box_masks = []
+        boxes = []
+        amodal_boxes = []
         poses = []
-        path = osp.join(self.root_dir, '2D', idx, 'point')
+        path = osp.join(self.root_dir, 'point', idx)
         files = os.listdir(path); files.sort(key=lambda x: int(x.split('/')[-1][:-4]))
         for file in files:
             frame_id = int(file.split('.')[0])
             if file.endswith('.npy') and (frame_id % self.interval == 0):
-                point_paths.append(osp.join('2D', idx, 'point', file))
+                point_paths.append(osp.join('point', idx, file))
                 image_paths.append(osp.join('2D', idx, 'color', file.replace('npy', 'jpg')))
-                box_masks.append(np.load(osp.join(path.replace('point', 'box_mask'), file)))
+                boxes.append(np.load(osp.join(path.replace('point', 'box'), file)))
+                amodal_boxes.append(np.load(osp.join(path.replace('point', 'amodal_box'), file)))
                 pose = np.asarray(
                     [[float(x[0]), float(x[1]), float(x[2]), float(x[3])] for x in
-                    (x.split(" ") for x in open(osp.join(path.replace('point', 'pose'), file.replace('npy', 'txt'))).read().splitlines())]
+                    (x.split(" ") for x in open(osp.join('2D', idx, 'pose', file.replace('npy', 'txt'))).read().splitlines())]
                 )
                 poses.append(pose)
-        return point_paths, image_paths, box_masks, poses
+        return point_paths, image_paths, boxes, amodal_boxes, poses
     
     def get_points_images_instance_semantic_masks_poses(self, idx):
         point_paths = []
         image_paths = []
         instance_paths = []
         semantic_paths = []
-        box_masks = []
+        boxes = []
+        amodal_boxes = []
         poses = []
-        path = osp.join(self.root_dir, '2D', idx, 'point')
+        path = osp.join(self.root_dir, 'point', idx)
         files = os.listdir(path); files.sort(key=lambda x: int(x.split('/')[-1][:-4]))
         for file in files:
             frame_id = int(file.split('.')[0])
             if file.endswith('.npy') and (frame_id % self.interval == 0):
-                point_paths.append(osp.join('2D', idx, 'point', file))
+                point_paths.append(osp.join('point', idx, file))
                 image_paths.append(osp.join('2D', idx, 'color', file.replace('npy', 'jpg')))
                 instance_paths.append(osp.join('instance_mask', idx, file))
                 semantic_paths.append(osp.join('semantic_mask', idx, file))
-                box_masks.append(np.load(osp.join(path.replace('point', 'box_mask'), file)))
+                boxes.append(np.load(osp.join(path.replace('point', 'box'), file)))
+                amodal_boxes.append(np.load(osp.join(path.replace('point', 'amodal_box'), file)))
                 pose = np.asarray(
                     [[float(x[0]), float(x[1]), float(x[2]), float(x[3])] for x in
-                    (x.split(" ") for x in open(osp.join(path.replace('point', 'pose'), file.replace('npy', 'txt'))).read().splitlines())]
+                    (x.split(" ") for x in open(osp.join('2D', idx, 'pose', file.replace('npy', 'txt'))).read().splitlines())]
                 )
                 poses.append(pose)
-        return point_paths, image_paths, instance_paths, semantic_paths, box_masks, poses
+        return point_paths, image_paths, instance_paths, semantic_paths, boxes, amodal_boxes, poses
     
     def align_poses(self, axis_align_matrix, poses):
         aligned_poses = []
@@ -443,7 +447,7 @@ class ScanNetMVData(object):
             info['point_cloud'] = pc_info
 
             # pts_paths, img_paths, box_masks, poses = self.get_points_images_masks_poses(sample_idx)
-            pts_paths, img_paths, instance_paths, semantic_paths, box_masks, poses = self.get_points_images_instance_semantic_masks_poses(sample_idx)
+            pts_paths, img_paths, instance_paths, semantic_paths, boxes, amodal_boxes, poses = self.get_points_images_instance_semantic_masks_poses(sample_idx)
             axis_align_matrix = self.get_axis_align_matrix(sample_idx)
             poses = self.align_poses(axis_align_matrix, poses)
             # TODO: check if any path is invalid
@@ -454,10 +458,11 @@ class ScanNetMVData(object):
             info['semantic_paths'] = semantic_paths
             # info['box_masks'] = box_masks
 
+
             if has_label:
                 annotations = {}
                 # box is of shape [k, 6 + class]
-                aligned_box_label = self.get_aligned_box_label(sample_idx)
+                aligned_box_label = np.concatenate(boxes, axis=0)
                 annotations['gt_num'] = aligned_box_label.shape[0]
                 if annotations['gt_num'] != 0:
                     aligned_box = aligned_box_label[:, :-1]  # k, 6
@@ -477,8 +482,18 @@ class ScanNetMVData(object):
                         self.cat_ids2class[classes[i]]
                         for i in range(annotations['gt_num'])
                     ])
+
+
                 annotations['axis_align_matrix'] = axis_align_matrix  # 4x4
-                annotations['box_masks'] = box_masks
+                annotations['box'] = boxes
+                annotations['amodal_box'] = amodal_boxes
+                per_frame_class = []
+                for k in range(len(boxes)):
+                    per_frame_class.append(np.array([
+                    self.cat_ids2class[boxes[i,6]]
+                    for i in range(boxes[k].shape[0])
+                ]))
+                annotations['per_frame_class'] = per_frame_class
                 info['annos'] = annotations
             return info
 
@@ -558,7 +573,7 @@ class ScanNetSVData(object):
 
     def get_images(self, idx):
         paths = []
-        path = osp.join(self.split_dir, f'{idx}.jpg')
+        path = osp.join('scannet_sv_18cls_%s'%self.split, f'{idx}.jpg')
         return path
         # img = cv2.imread(path)
         # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -619,7 +634,7 @@ class ScanNetSVData(object):
 
             image_path = self.get_images(sample_idx)
 
-            info['image_path'] = image_path
+            info['img_path'] = image_path
             info['pose'] = self.get_pose(sample_idx)
 
             pts_instance_mask_path = osp.join(

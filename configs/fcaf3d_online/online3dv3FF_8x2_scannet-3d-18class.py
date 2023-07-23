@@ -1,7 +1,7 @@
 _base_ = ['online3dv3FF.py', '../_base_/default_runtime.py']
 
 dataset_type = 'ScanNetMVDataset'
-data_root = './data/scannet/'
+data_root = './data/scannet-mv1/'
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',
                'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
@@ -49,7 +49,7 @@ train_pipeline = [
         shift_height=False),
     dict(type='NormalizePointsColor', color_mean=None),
     dict(type='MultiViewFormatBundle3D', class_names=class_names),
-    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d', 'box_masks','img'])
+    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d', 'img'])
 ]
 # need to confirm parameters
 test_pipeline = [

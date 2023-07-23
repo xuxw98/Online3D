@@ -13,6 +13,8 @@ from box_util import box3d_iou
 import multiprocessing
 from icecream import ic
 import pdb
+import imageio
+import skimage.transform as sktf 
 type2class_semseg = {
     "cabinet": 0,
     "bed": 1,
@@ -607,7 +609,10 @@ def process_cur_scan(cur_scan):
             #exit()
 
             save_rgb_name = "%s_%s"%(scan_name,rgb_map_name)
-            shutil.copyfile(os.path.join(scan_path,RGB_PATH,rgb_map_name),os.path.join(TARGET_DIR,save_rgb_name))
+
+            image = np.array(imageio.v2.imread(os.path.join(scan_path,RGB_PATH,rgb_map_name)))
+            image = sktf.resize(image, [968, 1296], order=0, preserve_range=True)
+            imageio.v2.imwrite(os.path.join(TARGET_DIR,save_rgb_name), image)
 
             xyzrgb = random_sampling(xyzrgb, 50000)
             
@@ -663,7 +668,7 @@ def make_split(path_dict, split="train"):
     TARGET_DIR = "%s_%s"%(TARGET_DIR_PREFIX,split)
     path_dict["TARGET_DIR"] = TARGET_DIR
     os.makedirs(TARGET_DIR,exist_ok=True)
-    f = open("./%s.txt"%(split))
+    f = open("Test_GT_Maker/%s.txt"%(split))
     scan_name_list = sorted(f.readlines())
 
     multi_process_parameter = []
@@ -691,8 +696,8 @@ def make_split(path_dict, split="train"):
 
 
 def main():
-    DATA_PATH = "../scannet_frames_25k" # Replace it with the path to scannet_frames_25k
-    TARGET_DIR_PREFIX = "../scannet_sv_18cls" # Replace it with the path to output path
+    DATA_PATH = "./scannet_frames_25k" # Replace it with the path to scannet_frames_25k
+    TARGET_DIR_PREFIX = "./scannet_sv_18cls" # Replace it with the path to output path
     RGB_PATH = "./color"
     DEPTH_PATH = "./depth"
     INSTANCE_PATH = "./instance"

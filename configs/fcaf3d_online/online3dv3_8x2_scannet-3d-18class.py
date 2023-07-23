@@ -31,7 +31,7 @@ train_pipeline = [
         shift_height=False),
     dict(type='NormalizePointsColor', color_mean=None),
     dict(type='MultiViewFormatBundle3D', class_names=class_names),
-    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d', 'box_masks'])
+    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d'])
 ]
 # need to confirm parameters
 test_pipeline = [

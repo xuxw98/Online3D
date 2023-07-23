@@ -23,7 +23,8 @@ from .pipelines import (AffineResize, BackgroundPointsFilter, GlobalAlignment,
 # yapf: enable
 from .s3dis_dataset import S3DISDataset, S3DISSegDataset
 from .scannet_dataset import (ScanNetDataset, ScanNetInstanceSegDataset,
-                              ScanNetSegDataset, ScanNetInstanceSegV2Dataset)
+                              ScanNetSegDataset, ScanNetInstanceSegV2Dataset,
+                              ScanNetSVDataset, ScanNetSVInstanceSegV2Dataset)
 from .semantickitti_dataset import SemanticKITTIDataset
 from .sunrgbd_dataset import SUNRGBDDataset
 from .utils import get_loading_pipeline
@@ -44,5 +45,5 @@ __all__ = [
     'RandomJitterPoints', 'ObjectNameFilter', 'AffineResize',
     'RandomShiftScale', 'LoadPointsFromDict', 'PIPELINES',
     'RangeLimitedRandomCrop', 'RandomRotate', 'MultiViewWrapper',
-    'ScanNetInstanceSegV2Dataset'
+    'ScanNetInstanceSegV2Dataset', 'ScanNetSVDataset','ScanNetSVInstanceSegV2Dataset'
 ]
