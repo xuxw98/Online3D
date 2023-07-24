@@ -622,13 +622,8 @@ class ScanNetSVData(object):
 
             info['intrinsics'] = self.get_intrinsics(sample_idx)  
 
-            pts_filename = osp.join(self.split_dir,
+            info['pts_path'] = osp.join(self.split_dir,
                                     f'{sample_idx}_pc.npy')
-            points = np.load(pts_filename).astype(np.float32)
-            mmcv.mkdir_or_exist(osp.join(self.save_path, 'points'))
-            points.tofile(
-                osp.join(self.save_path, 'points', f'{sample_idx}.bin'))
-            info['pts_path'] = osp.join('points', f'{sample_idx}.bin')
             
             # update with RGB image paths if exist
 
@@ -637,32 +632,12 @@ class ScanNetSVData(object):
             info['img_path'] = image_path
             info['pose'] = self.get_pose(sample_idx)
 
-            pts_instance_mask_path = osp.join(
+            info['pts_instance_mask_path'] = osp.join(
                 self.split_dir,
                 f'{sample_idx}_ins_label.npy')
-            pts_semantic_mask_path = osp.join(
+            info['pts_semantic_mask_path'] = osp.join(
                 self.split_dir, 
                 f'{sample_idx}_sem_label.npy')
-
-            pts_instance_mask = np.load(pts_instance_mask_path).astype(
-                np.int64)
-            pts_semantic_mask = np.load(pts_semantic_mask_path).astype(
-                np.int64)
-
-            mmcv.mkdir_or_exist(osp.join(self.save_path, 'instance_mask'))
-            mmcv.mkdir_or_exist(osp.join(self.save_path, 'semantic_mask'))
-
-            pts_instance_mask.tofile(
-                osp.join(self.save_path, 'instance_mask',
-                            f'{sample_idx}.bin'))
-            pts_semantic_mask.tofile(
-                osp.join(self.save_path, 'semantic_mask',
-                            f'{sample_idx}.bin'))
-
-            info['pts_instance_mask_path'] = osp.join(
-                'instance_mask', f'{sample_idx}.bin')
-            info['pts_semantic_mask_path'] = osp.join(
-                'semantic_mask', f'{sample_idx}.bin')
 
             if has_label:
                 annotations = {}
