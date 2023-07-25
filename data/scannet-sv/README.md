@@ -30,6 +30,8 @@ scannet-sv
 │   ├── scenexxxx_xx_xxxxxx_pose.txt
 │   ├── scenexxxx_xx_xxxxxx_sem_label.npy
 │   ├── scenexxxx_xx_xxxxxx.jpg
+│   ├── scenexxxx_xx_depth_intrinsic.txt
+│   ├── scenexxxx_xx_image_intrinsic.txt
 ├── Test_GT_Maker/make_scannet_18cls_multi_thread.py
 ├── scannet_sv_infos_train.pkl
 └── scannet_sv_infos_val.pkl
