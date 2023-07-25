@@ -397,6 +397,7 @@ class TD3DInstanceHead(BaseModule):
         bbox_preds, cls_preds, locations = self._forward_first(x[1:])
         losses = self._loss_first(bbox_preds, cls_preds, locations, 
                             gt_bboxes, gt_labels, img_metas)
+        
         #second stage
         bbox_list = self._get_bboxes_train(bbox_preds, cls_preds, locations, gt_bboxes, gt_labels, img_metas)
         assigned_bbox_list = []
@@ -427,6 +428,7 @@ class TD3DInstanceHead(BaseModule):
         cls_preds, targets, v2r, r2scene, rois, scores, gt_idxs = self._forward_second(x[0], targets, assigned_bbox_list)
         losses.update(self._loss_second(cls_preds, targets, v2r, r2scene, rois, gt_idxs,
                                         gt_bboxes, gt_labels, img_metas))
+        
 
         return losses
 

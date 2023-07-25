@@ -5,6 +5,7 @@ from os import path as osp
 
 import mmcv
 import numpy as np
+import math
 
 
 class ScanNetData(object):
@@ -586,14 +587,35 @@ class ScanNetSVData(object):
         # image[:img_height, :img_width, :3] = img
         # return image, image_size
 
+    def make_intrinsic(self, fx, fy, mx, my):
+        intrinsic = np.eye(4)
+        intrinsic[0][0] = fx
+        intrinsic[1][1] = fy
+        intrinsic[0][2] = mx
+        intrinsic[1][2] = my
+        return intrinsic
+
+    def adjust_intrinsic(self, intrinsic, intrinsic_image_dim, image_dim):
+        if intrinsic_image_dim == image_dim:
+            return intrinsic
+        resize_width = int(math.floor(image_dim[1] * float(intrinsic_image_dim[0]) / float(intrinsic_image_dim[1])))
+        intrinsic[0, 0] *= float(resize_width) / float(intrinsic_image_dim[0])
+        intrinsic[1, 1] *= float(image_dim[1]) / float(intrinsic_image_dim[1])
+        # account for cropping here
+        intrinsic[0, 2] *= float(image_dim[0] - 1) / float(intrinsic_image_dim[0] - 1)
+        intrinsic[1, 2] *= float(image_dim[1] - 1) / float(intrinsic_image_dim[1] - 1)
+        return intrinsic
+
     def get_intrinsics(self, idx):
+        #unify_dim = (640, 480)
+        #matrix = self.adjust_intrinsic(self.make_intrinsic(577.870605,577.870605,319.5,239.5), [640,480], unify_dim)
         path = osp.join(self.split_dir, f'{idx[:-7]}_image_intrinsic.txt')
         matrix = load_matrix_from_txt(path)
         return matrix
 
     def get_pose(self, idx):
         path = osp.join(self.split_dir, f'{idx}_pose.txt') 
-        pose = np.linalg.inv(load_matrix_from_txt(path))
+        pose = load_matrix_from_txt(path)
         return  pose
     
 
@@ -622,8 +644,13 @@ class ScanNetSVData(object):
 
             info['intrinsics'] = self.get_intrinsics(sample_idx)  
 
-            info['pts_path'] = osp.join(self.split_dir,
+            pts_filename = osp.join(self.split_dir,
                                     f'{sample_idx}_pc.npy')
+            points = np.load(pts_filename).astype(np.float32)
+            mmcv.mkdir_or_exist(osp.join(self.save_path, 'points'))
+            points.tofile(
+                osp.join(self.save_path, 'points', f'{sample_idx}.bin'))
+            info['pts_path'] = osp.join('points', f'{sample_idx}.bin')
             
             # update with RGB image paths if exist
 
@@ -632,12 +659,32 @@ class ScanNetSVData(object):
             info['img_path'] = image_path
             info['pose'] = self.get_pose(sample_idx)
 
-            info['pts_instance_mask_path'] = osp.join(
+            pts_instance_mask_path = osp.join(
                 self.split_dir,
                 f'{sample_idx}_ins_label.npy')
-            info['pts_semantic_mask_path'] = osp.join(
+            pts_semantic_mask_path = osp.join(
                 self.split_dir, 
                 f'{sample_idx}_sem_label.npy')
+
+            pts_instance_mask = np.load(pts_instance_mask_path).astype(
+                np.int64)
+            pts_semantic_mask = np.load(pts_semantic_mask_path).astype(
+                np.int64)
+
+            mmcv.mkdir_or_exist(osp.join(self.save_path, 'instance_mask'))
+            mmcv.mkdir_or_exist(osp.join(self.save_path, 'semantic_mask'))
+
+            pts_instance_mask.tofile(
+                osp.join(self.save_path, 'instance_mask',
+                            f'{sample_idx}.bin'))
+            pts_semantic_mask.tofile(
+                osp.join(self.save_path, 'semantic_mask',
+                            f'{sample_idx}.bin'))
+
+            info['pts_instance_mask_path'] = osp.join(
+                'instance_mask', f'{sample_idx}.bin')
+            info['pts_semantic_mask_path'] = osp.join(
+                'semantic_mask', f'{sample_idx}.bin')
 
             if has_label:
                 annotations = {}

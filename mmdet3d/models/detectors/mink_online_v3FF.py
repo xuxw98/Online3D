@@ -73,36 +73,36 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
         self.voxel_size = voxel_size
 
         self.scale = 2.5
-        self.conv_d1 = nn.ModuleList()
-        self.conv_d3 = nn.ModuleList()
+        self.conv_k5d1 = nn.ModuleList()
+        self.conv_k3d5 = nn.ModuleList()
         self.conv_convert = nn.ModuleList()
         for i, C in enumerate([64, 128, 256, 512]):
             if i in self.vmp_layer:
-                self.conv_d1.append(nn.Sequential(
+                self.conv_k5d1.append(nn.Sequential(
                     ME.MinkowskiConvolution(
                         in_channels=C,
                         out_channels=C,
-                        kernel_size=3,
+                        kernel_size=5,
                         stride=1,
                         dilation=1,
                         bias=False,
                         dimension=3),
                     ME.MinkowskiBatchNorm(C),
                     ME.MinkowskiReLU()))
-                self.conv_d3.append(nn.Sequential(
+                self.conv_k3d5.append(nn.Sequential(
                     ME.MinkowskiConvolution(
                         in_channels=C,
                         out_channels=C,
                         kernel_size=3,
                         stride=1,
-                        dilation=3,
+                        dilation=5,
                         bias=False,
                         dimension=3),
                     ME.MinkowskiBatchNorm(C),
                     ME.MinkowskiReLU()))
                 self.conv_convert.append(nn.Sequential(
                     ME.MinkowskiConvolutionTranspose(
-                        in_channels=3*C,
+                        in_channels=2*C,
                         out_channels=C,
                         kernel_size=1,
                         stride=1,
@@ -111,8 +111,8 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
                         dimension=3),
                     ME.MinkowskiBatchNorm(C)))
             else:
-                self.conv_d1.append(nn.Identity())
-                self.conv_d3.append(nn.Identity())
+                self.conv_k5d1.append(nn.Identity())
+                self.conv_k3d5.append(nn.Identity())
                 self.conv_convert.append(nn.Identity())
         self.relu = ME.MinkowskiReLU()
         
@@ -152,18 +152,14 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
         x = self.backbone(x)
         return x
     
-    def global_avg_pool_and_cat(self, feat1, feat2, feat3):
+    def two_cat(self, feat1, feat2):
         coords1 = feat1.decomposed_coordinates
         feats1 = feat1.decomposed_features
         coords2 = feat2.decomposed_coordinates
         feats2 = feat2.decomposed_features
-        coords3 = feat3.decomposed_coordinates
-        feats3 = feat3.decomposed_features
-        for i in range(len(coords3)):
+        for i in range(len(coords1)):
             # shape 1 N
-            global_avg_feats3 = torch.mean(feats3[i], dim=0).unsqueeze(0).repeat(coords3[i].shape[0],1)
-            feats1[i] = torch.cat([feats1[i], feats2[i]], dim=1)     
-            feats1[i] = torch.cat([feats1[i], global_avg_feats3], dim=1)      
+            feats1[i] = torch.cat([feats1[i], feats2[i]], dim=1)       
         coords_sp, feats_sp = ME.utils.sparse_collate(coords1, feats1)
         feat_new = ME.SparseTensor(
             coordinates=coords_sp,
@@ -271,9 +267,9 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
                 tensor_stride=tensor_stride
             )
 
-            branch1 = self.conv_d1[index](current_feat_new)
-            branch3 = self.conv_d3[index](current_feat_new)
-            branch  = self.global_avg_pool_and_cat(branch1, branch3, current_feat_new)
+            branch1 = self.conv_k5d1[index](current_feat_new)
+            branch2 = self.conv_k3d5[index](current_feat_new)
+            branch  = self.two_cat(branch1, branch2)
             branch = self.conv_convert[index](branch)
             current_feat_new = branch + current_feat_new
             current_feat_new = self.relu(current_feat_new)
@@ -309,9 +305,9 @@ class MinkOnline3DDetector_V3FF(Base3DDetector):
             accumulated_feats = x
             for i in range(len(x)):
                 if i in self.vmp_layer:
-                    branch1 = self.conv_d1[i](x[i])
-                    branch3 = self.conv_d3[i](x[i])
-                    branch  = self.global_avg_pool_and_cat(branch1, branch3, x[i])
+                    branch1 = self.conv_k5d1[i](x[i])
+                    branch2 = self.conv_k3d5[i](x[i])
+                    branch  = self.two_cat(branch1, branch2)
                     branch = self.conv_convert[i](branch)
                     x[i] = branch + x[i]
                     x[i] = self.relu(x[i])

@@ -480,6 +480,7 @@ def process_cur_scan(cur_scan):
 
     DATA_PATH = path_dict["DATA_PATH"]
     TARGET_DIR = path_dict["TARGET_DIR"]
+    AXIS_ALIGN_MATRIX_PATH = path_dict["AXIS_ALIGN_MATRIX_PATH"]
     RGB_PATH = path_dict["RGB_PATH"]
     DEPTH_PATH = path_dict["DEPTH_PATH"]
     INSTANCE_PATH = path_dict["INSTANCE_PATH"]
@@ -493,7 +494,14 @@ def process_cur_scan(cur_scan):
 
     global_bbox_name = os.path.join(TARGET_DIR, "%s_global_bbox.ply"%(scan_name))
     global_pc_name = os.path.join(TARGET_DIR, "%s_global_pc.txt"%(scan_name))
-
+    axis_align_matrix_path = os.path.join(AXIS_ALIGN_MATRIX_PATH, "%s"%(scan_name),"%s.txt"%(scan_name))
+    lines = open(axis_align_matrix_path).readlines()
+    for line in lines:
+        if 'axisAlignment' in line:
+            axis_align_matrix = [float(x) \
+                for x in line.rstrip().strip('axisAlignment = ').split(' ')]
+            break
+    axis_align_matrix = np.array(axis_align_matrix).reshape((4,4))
     #jump the processed scan
     if os.path.exists(global_pc_name) and os.path.exists(global_bbox_name):
         return
@@ -518,8 +526,8 @@ def process_cur_scan(cur_scan):
     instance_map_list = sorted(os.listdir(os.path.join(scan_path,INSTANCE_PATH)))
     label_map_list = sorted(os.listdir(os.path.join(scan_path,LABEL_PATH)))
 
-    poses = [load_matrix_from_txt(os.path.join(scan_path,POSE_PATH, i)) for i in POSE_txt_list]
-    
+    poses = [np.dot(axis_align_matrix ,load_matrix_from_txt(os.path.join(scan_path,POSE_PATH, i))) for i in POSE_txt_list]
+
     xyzrgb_global = merge_cur_scan(path_dict, rgb_map_list, depth_map_list, instance_map_list, label_map_list, poses, intrinsic_depth, intrinsic_image)
 
     bbox_3d_global = get_3d_bbox(xyzrgb_global)
@@ -594,6 +602,7 @@ def process_cur_scan(cur_scan):
             continue
             
         if bbox_3d.shape[0] > 0 and bbox_2d.shape[0] > 0 and bbox_3d_global.shape[0] > 0:
+            # 1
             rgb_map_name_no = rgb_map_name.split(".")[0]
             
             bbox_2d_name = "%s_%s_2d_bbox"%(scan_name,rgb_map_name_no)
@@ -609,11 +618,12 @@ def process_cur_scan(cur_scan):
             #exit()
 
             save_rgb_name = "%s_%s"%(scan_name,rgb_map_name)
-
+            
             image = np.array(imageio.v2.imread(os.path.join(scan_path,RGB_PATH,rgb_map_name)))
             image = sktf.resize(image, [968, 1296], order=0, preserve_range=True)
             imageio.v2.imwrite(os.path.join(TARGET_DIR,save_rgb_name), image)
-
+            # 2
+            
             xyzrgb = random_sampling(xyzrgb, 50000)
             
             pc_name = "%s_%s_pc"%(scan_name,rgb_map_name_no)
@@ -643,7 +653,7 @@ def process_cur_scan(cur_scan):
             # pc_name = "%s_%s_pc_50k.txt"%(scan_name,rgb_map_name_no)
             # np.savetxt(os.path.join(TARGET_DIR,pc_name),xyzrgb[:,:6],fmt="%.3f")
             # exit()
-
+            
             '''
             for box in bbox_3d:
                 label_no = box[7]
@@ -658,6 +668,7 @@ def process_cur_scan(cur_scan):
 def make_split(path_dict, split="train"):
     DATA_PATH = path_dict["DATA_PATH"]
     TARGET_DIR_PREFIX = path_dict["TARGET_DIR_PREFIX"]
+    AXIS_ALIGN_MATRIX_PATH = path_dict["AXIS_ALIGN_MATRIX_PATH"]
     RGB_PATH = path_dict["RGB_PATH"]
     DEPTH_PATH = path_dict["DEPTH_PATH"]
     INSTANCE_PATH = path_dict["INSTANCE_PATH"]
@@ -672,7 +683,7 @@ def make_split(path_dict, split="train"):
     scan_name_list = sorted(f.readlines())
 
     multi_process_parameter = []
-
+    #pdb.set_trace()
     for scan_name_index,scan_name in enumerate(scan_name_list):
         cur_parameter = {}
         cur_parameter["scan_name_index"] = scan_name_index
@@ -696,8 +707,9 @@ def make_split(path_dict, split="train"):
 
 
 def main():
-    DATA_PATH = "./scannet_frames_25k" # Replace it with the path to scannet_frames_25k
-    TARGET_DIR_PREFIX = "./scannet_sv_18cls" # Replace it with the path to output path
+    DATA_PATH = "../scannet_frames_25k" # Replace it with the path to scannet_frames_25k
+    TARGET_DIR_PREFIX = "../scannet_sv_18cls" # Replace it with the path to output path
+    AXIS_ALIGN_MATRIX_PATH = "../scans" # Replace it with the path to axis_align_matrix path
     RGB_PATH = "./color"
     DEPTH_PATH = "./depth"
     INSTANCE_PATH = "./instance"
@@ -706,11 +718,12 @@ def main():
 
     path_dict = {"DATA_PATH": DATA_PATH,
                 "TARGET_DIR_PREFIX": TARGET_DIR_PREFIX,
+                "AXIS_ALIGN_MATRIX_PATH": AXIS_ALIGN_MATRIX_PATH,
                 "RGB_PATH": RGB_PATH,
                 "DEPTH_PATH": DEPTH_PATH,
                 "INSTANCE_PATH": INSTANCE_PATH,
                 "LABEL_PATH": LABEL_PATH,
-                "POSE_PATH": POSE_PATH,                
+                "POSE_PATH": POSE_PATH,        
                 }
 
     splits = ["train", "val"]

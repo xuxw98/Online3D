@@ -33,7 +33,7 @@ train_pipeline = [
         load_dim=6,
         use_dim=[0, 1, 2, 3, 4, 5]),
     dict(type='LoadAnnotations3D'),
-    #dict(type='GlobalAlignment', rotation_axis=2),
+    dict(type='GlobalAlignment', rotation_axis=2),
     dict(
         type='Resize',
         img_scale=[(1333, 600)],  

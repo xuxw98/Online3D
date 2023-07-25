@@ -9,6 +9,7 @@ from mmcv.cnn import Scale, bias_init_with_prob
 from mmdet3d.core.bbox.structures import rotation_3d_in_axis
 # from mmdet3d.ops.pcdet_nms import pcdet_nms_gpu, pcdet_nms_normal_gpu
 from mmcv.ops import nms3d, nms3d_normal
+import pdb
 
 
 @HEADS.register_module()

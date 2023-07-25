@@ -9,6 +9,7 @@ from mmdet3d.core.bbox.structures import (get_proj_mat_by_coord_type,
                                           points_cam2img)
 from ..builder import FUSION_LAYERS
 from . import apply_3d_transformation
+import pdb
 
 
 def point_sample(img_meta,
@@ -51,11 +52,9 @@ def point_sample(img_meta,
     Returns:
         torch.Tensor: NxC image features sampled by point coordinates.
     """
-
     # apply transformation based on info in img_meta
     points = apply_3d_transformation(
         points, coord_type, img_meta, reverse=True)
-
     # project points to camera coordinate
     pts_2d = points_cam2img(points, proj_mat)
 
@@ -63,7 +62,6 @@ def point_sample(img_meta,
     # the image is resized by img_scale_factor
     img_coors = pts_2d[:, 0:2] * img_scale_factor  # Nx2
     img_coors -= img_crop_offset
-
     # grid sample, the valid grid range should be in [-1,1]
     coor_x, coor_y = torch.split(img_coors, 1, dim=1)  # each is Nx1
 

@@ -1,6 +1,6 @@
 voxel_size = .02
 padding = .08
-n_points = 100000
+n_points = 50000
 
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',

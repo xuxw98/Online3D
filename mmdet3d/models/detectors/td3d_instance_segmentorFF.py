@@ -13,6 +13,9 @@ from mmdet3d.core.bbox.structures import get_proj_mat_by_coord_type
 import torch.nn as nn
 import torch
 import pdb
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 @DETECTORS.register_module()
 class TD3DInstanceSegmentorFF(Base3DDetector):
@@ -67,7 +70,6 @@ class TD3DInstanceSegmentorFF(Base3DDetector):
         self.neck.init_weights()
         self.head.init_weights()
 
-
     def _f(self, x, img_features, img_metas, img_shape):
         points = x.decomposed_coordinates
         for i in range(len(points)):
@@ -105,6 +107,7 @@ class TD3DInstanceSegmentorFF(Base3DDetector):
             coordinate_map_key=x.coordinate_map_key,
             coordinate_manager=x.coordinate_manager)
         projected_features = self.conv(projected_features)
+        #pdb.set_trace()
         return projected_features + x
 
 
@@ -156,7 +159,6 @@ class TD3DInstanceSegmentorFF(Base3DDetector):
         Returns:
             dict: Loss values.
         """
-        
         # points = [torch.cat([p, torch.unsqueeze(m, 1)], dim=1) for p, m in zip(points, pts_instance_mask)]
         points = [torch.cat([p, torch.unsqueeze(inst, 1), torch.unsqueeze(sem, 1)], dim=1) for p, inst, sem in zip(points, pts_instance_mask, pts_semantic_mask)]
         field = self.collate(points, ME.SparseTensorQuantizationMode.RANDOM_SUBSAMPLE)

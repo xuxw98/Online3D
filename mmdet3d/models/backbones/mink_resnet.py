@@ -15,6 +15,7 @@ import torch.nn as nn
 
 from mmcv.runner import BaseModule
 from mmdet3d.models.builder import BACKBONES
+import pdb
 
 
 @BACKBONES.register_module()
@@ -278,11 +279,11 @@ class MinkFFResNetNN(MinkResNetNN):
         x = self.conv1(x)
         x = self.norm1(x)
         x = self.relu(x)
+        x = f(x)
         if self.return_stem:
             outs.append(x)
         if self.pool:
             x = self.maxpool(x)
-        x=f(x)
         for i in range(self.num_stages):
             x = getattr(self, f'layer{i + 1}')(x)
             outs.append(x)

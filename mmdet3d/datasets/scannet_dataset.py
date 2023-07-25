@@ -342,7 +342,6 @@ class ScanNetSVDataset(Custom3DDataset):
             input_dict['file_name'] = pts_filename
 
         if self.modality['use_camera']:
-            
             input_dict['img_info'] = dict(filename=osp.join(self.data_root, info['img_path']))
             input_dict['img_path'] = osp.join(self.data_root, info['img_path'])
             intrinsic = info['intrinsics']
