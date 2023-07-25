@@ -2,14 +2,14 @@
 
 Train and evaluate FCAF3D on ScanNet-SV:
 ```
-CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_train.sh configs/fcaf3d_sv/fcaf3d_scannet-3d-18class.py 2 --work-dir work_dirs/fcaf3d_sv
-CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/fcaf3d_sv/fcaf3d_scannet-3d-18class.py work_dirs/fcaf3d_sv/latest.pth 2 --show-dir work_dirs/debug/ --eval x
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_train.sh configs/fcaf3d_sv/fcaf3dFF_scannet-3d-18class.py 2 --work-dir work_dirs/fcaf3d_svFF
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/fcaf3d_sv/fcaf3dFF_scannet-3d-18class.py work_dirs/fcaf3d_svFF/latest.pth 2 --show-dir work_dirs/debug/ --eval x
 ```
 
 Train and evaluate TD3D on ScanNet-SV:
 ```
-CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_train.sh configs/td3d_sv/td3d_is_scannet-3d-18class.py 2 --work-dir work_dirs/td3d_sv
-CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/td3d_sv/td3d_is_scannet-3d-18class.py work_dirs/td3d_sv/latest.pth 2 --show-dir work_dirs/debug/ --eval x
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_train.sh configs/td3d_sv/td3dFF_is_scannet-3d-18class.py 2 --work-dir work_dirs/td3d_svFF
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/td3d_sv/td3dFF_is_scannet-3d-18class.py work_dirs/td3d_svFF/latest.pth 2 --show-dir work_dirs/debug/ --eval x
 ```
 
 Train and evaluate FCAF3D-Online on ScanNet-MV from scratch:
