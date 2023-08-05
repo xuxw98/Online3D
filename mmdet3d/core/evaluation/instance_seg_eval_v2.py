@@ -3,8 +3,8 @@ import numpy as np
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
 
-from .scannet_utils.evaluate_semantic_instance import scannet_eval
-
+from .scannet_utils.evaluate_semantic_instance_v2 import scannet_eval_v2
+import torch
 
 def aggregate_predictions(masks, labels, scores, valid_class_ids):
     """Maps predictions to ScanNet evaluator format.
@@ -107,7 +107,114 @@ def instance_seg_eval_v2(gt_semantic_masks,
         scores=pred_instance_scores,
         valid_class_ids=valid_class_ids)
     gts = rename_gt(gt_semantic_masks, gt_instance_masks, valid_class_ids)
-    metrics = scannet_eval(
+    metrics = scannet_eval_v2(
+        preds=preds,
+        gts=gts,
+        options=options,
+        valid_class_ids=valid_class_ids,
+        class_labels=class_labels,
+        id_to_label=id_to_label)
+    header = ['classes', 'AP_0.25', 'AP_0.50', 'AP', 'Prec_0.50', 'Rec_0.50']
+    rows = []
+    for label, data in metrics['classes'].items():
+        aps = [data['ap25%'], data['ap50%'], data['ap'], data['prec50%'], data['rec50%']]
+        rows.append([label] + [f'{ap:.4f}' for ap in aps])
+    aps = metrics['all_ap_25%'], metrics['all_ap_50%'], metrics['all_ap'], metrics['all_prec_50%'], metrics['all_rec_50%']
+    footer = ['Overall'] + [f'{ap:.4f}' for ap in aps]
+    table = AsciiTable([header] + rows + [footer])
+    table.inner_footing_row_border = True
+    print_log('\n' + table.table, logger=logger)
+    return metrics
+
+
+
+def multiview_instance_seg_eval_v2(gt_semantic_masks,
+                         gt_instance_masks,
+                         pred_instance_masks,
+                         pred_instance_labels,
+                         pred_instance_scores,
+                         valid_class_ids,
+                         class_labels,
+                         options=None,
+                         logger=None,
+                        evaluator_mode='slice_len_constant',
+                        num_slice=0,
+                        len_slice=0):
+    """Instance Segmentation Evaluation.
+
+    Evaluate the result of the instance segmentation.
+
+    Args:
+        gt_semantic_masks (list[torch.Tensor]): Ground truth semantic masks.
+        gt_instance_masks (list[torch.Tensor]): Ground truth instance masks.
+        pred_instance_masks (list[torch.Tensor]): Predicted instance masks.
+        pred_instance_labels (list[torch.Tensor]): Predicted instance labels.
+        pred_instance_scores (list[torch.Tensor]): Predicted instance labels.
+        valid_class_ids (tuple[int]): Ids of valid categories.
+        class_labels (tuple[str]): Names of valid categories.
+        options (dict, optional): Additional options. Keys may contain:
+            `overlaps`, `min_region_sizes`, `distance_threshes`,
+            `distance_confs`. Default: None.
+        logger (logging.Logger | str, optional): The way to print the mAP
+            summary. See `mmdet.utils.print_log()` for details. Default: None.
+
+    Returns:
+        dict[str, float]: Dict of results.
+    """
+    assert len(valid_class_ids) == len(class_labels)
+    id_to_label = {
+        valid_class_ids[i]: class_labels[i]
+        for i in range(len(valid_class_ids))
+    }
+    preds = []
+    gts = []
+
+
+    for scene_idx in range(len(gt_semantic_masks)):
+        # parse detected annotations
+        gt_semantic_mask = gt_semantic_masks[scene_idx]
+        gt_instance_mask = gt_instance_masks[scene_idx]
+        pred_instance_mask = pred_instance_masks[scene_idx]
+        pred_instance_label = pred_instance_labels[scene_idx]
+        pred_instance_score = pred_instance_scores[scene_idx]
+        timestamps = []
+        # special condition  only 4 frames but require 5 slices so just 4slices
+        # as short as I can 
+        if evaluator_mode == 'slice_len_constant':
+            i=1
+            while i*len_slice<len(pred_instance_mask):
+                timestamps.append(i*len_slice)
+                i=i+1
+            timestamps.append(len(pred_instance_mask))
+        else:
+            num_slice = min(len(pred_instance_mask),num_slice)
+            for i in range(1,num_slice):
+                timestamps.append(i*(len(pred_instance_mask)//num_slice))
+            timestamps.append(len(pred_instance_mask))
+
+        # online evaluation
+        for j in range(len(timestamps)):
+            ts = timestamps[j]
+            if j == 0:
+                gt_semantic_mask_slice = torch.cat(gt_semantic_mask[:ts], dim=0)
+                gt_instance_mask_slice = torch.cat(gt_instance_mask[:ts], dim=0)
+                pred_instance_mask_slice = torch.cat(pred_instance_mask[:ts], dim=0)
+                pred_instance_label_slice = torch.cat(pred_instance_label[:ts], dim=0)
+                pred_instance_score_slice = torch.cat(pred_instance_score[:ts], dim=0)
+            else:
+                gt_semantic_mask_slice = torch.cat(gt_semantic_mask[timestamps[j-1]:ts], dim=0)
+                gt_instance_mask_slice = torch.cat(gt_instance_mask[timestamps[j-1]:ts], dim=0)
+                pred_instance_mask_slice = torch.cat(pred_instance_mask[timestamps[j-1]:ts], dim=0)
+                pred_instance_label_slice = torch.cat(pred_instance_label[timestamps[j-1]:ts], dim=0)
+                pred_instance_score_slice = torch.cat(pred_instance_score[timestamps[j-1]:ts], dim=0)
+
+            preds.append(aggregate_predictions(
+                masks=pred_instance_mask_slice,
+                labels=pred_instance_label_slice,
+                scores=pred_instance_score_slice,
+                valid_class_ids=valid_class_ids))
+            gts.append(rename_gt(gt_semantic_mask_slice, gt_instance_mask_slice, valid_class_ids))
+    metrics = scannet_eval_v2(
         preds=preds,
         gts=gts,
         options=options,

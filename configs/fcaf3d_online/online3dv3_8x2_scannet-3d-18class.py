@@ -7,6 +7,8 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
                'garbagebin')
 
+load_from = "work_dirs/fcaf3d_sv/latest.pth"
+
 train_pipeline = [
     dict(
         type='LoadAdjacentPointsFromFiles',

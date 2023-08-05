@@ -9,6 +9,8 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
 img_norm_cfg = dict(
     mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
 
+load_from = "work_dirs/fcaf3d_svFF/latest.pth"
+
 train_pipeline = [
     dict(
         type='LoadAdjacentViewsFromFiles',

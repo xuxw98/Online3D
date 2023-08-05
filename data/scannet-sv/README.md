@@ -7,7 +7,7 @@ The processed data can be downloaded from xxx.
 Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
 Link or move the 'scans' folder to this level of directory. 
 
-**Step 2.** Process SV data by running `python Test_GT_Maker/make_scannet_18cls_multi_thread.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
+**Step 2.** Process SV data by running `python generate_18cls_gt_data.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
 
 
 **Step 3.** Generate .pkl files by:
@@ -21,9 +21,11 @@ python tools/create_data.py scannet --root-path ./data/scannet-sv --out-dir ./da
 scannet-sv
 ├── README.md
 ├── scannet_frames_25k/
+├── meta_data/
+│   ├── scannetv2_train.txt
+│   ├── scannetv2_val.txt
 ├── scannet_sv_18cls_train/
 ├── scannet_sv_18cls_val/
-│   ├── scenexxxx_xx_xxxxxx_2d_bbox.npy
 │   ├── scenexxxx_xx_xxxxxx_bbox.npy
 │   ├── scenexxxx_xx_xxxxxx_ins_label.npy
 │   ├── scenexxxx_xx_xxxxxx_pc.npy
@@ -32,7 +34,9 @@ scannet-sv
 │   ├── scenexxxx_xx_xxxxxx.jpg
 │   ├── scenexxxx_xx_depth_intrinsic.txt
 │   ├── scenexxxx_xx_image_intrinsic.txt
-├── Test_GT_Maker/make_scannet_18cls_multi_thread.py
+├── generate_18cls_gt_data.py
+├── load_scannet_data.py
+├── scannet_utils.py
 ├── scannet_sv_infos_train.pkl
 └── scannet_sv_infos_val.pkl
 

@@ -6,6 +6,7 @@ from .loading import (LoadAnnotations3D, LoadImageFromFileMono3D,
                       LoadMultiViewImageFromFiles, LoadPointsFromDict,
                       LoadPointsFromFile, LoadPointsFromMultiSweeps,
                       NormalizePointsColor, PointSegClassMapping, PointSegClassMappingV2,
+                      MultiViewsPointSegClassMapping,
                       LoadAdjacentPointsFromFiles,LoadAdjacentViewsFromFiles)
 from .test_time_aug import MultiScaleFlipAug3D
 # yapf: disable
@@ -13,12 +14,13 @@ from .transforms_3d import (AffineResize, BackgroundPointsFilter,
                             GlobalAlignment, GlobalRotScaleTrans,
                             IndoorPatchPointSample, IndoorPointSample,
                             MultiViewWrapper, ObjectNameFilter, ObjectNoise,
-                            ObjectRangeFilter, ObjectSample, PointSample,
+                            ObjectRangeFilter, ObjectSample, PointSample, MultiViewsPointSample,
                             PointShuffle, PointsRangeFilter,
                             RandomDropPointsColor, RandomFlip3D,
                             RandomJitterPoints, RandomRotate, RandomShiftScale,
                             RangeLimitedRandomCrop, VoxelBasedPointSampler,
-                            BboxRecalculation, GlobalRotScaleTransV2)
+                            BboxRecalculation, MultiViewsBboxRecalculation, 
+                            GlobalRotScaleTransV2)
 from .mv_augment import MultiImgsAug
 
 __all__ = [
@@ -27,13 +29,14 @@ __all__ = [
     'Compose', 'LoadMultiViewImageFromFiles', 'LoadPointsFromFile',
     'DefaultFormatBundle', 'DefaultFormatBundle3D', 'MultiViewFormatBundle3D', 'DataBaseSampler',
     'NormalizePointsColor', 'LoadAnnotations3D', 'IndoorPointSample',
-    'PointSample', 'PointSegClassMapping', 'LoadAdjacentPointsFromFiles', 'MultiScaleFlipAug3D',
+    'PointSample', 'MultiViewsPointSample','PointSegClassMapping', 'LoadAdjacentPointsFromFiles', 'MultiScaleFlipAug3D',
     'LoadPointsFromMultiSweeps', 'BackgroundPointsFilter',
     'VoxelBasedPointSampler', 'GlobalAlignment', 'IndoorPatchPointSample',
     'LoadImageFromFileMono3D', 'ObjectNameFilter', 'RandomDropPointsColor',
     'RandomJitterPoints', 'AffineResize', 'RandomShiftScale',
     'LoadPointsFromDict', 'MultiViewWrapper', 'RandomRotate',
-    'RangeLimitedRandomCrop','LoadAdjacentViewsFromFiles','MultiImgsAug','PointSegClassMappingV2',
-    'BboxRecalculation','GlobalRotScaleTransV2'
+    'RangeLimitedRandomCrop','LoadAdjacentViewsFromFiles','MultiImgsAug',
+    'PointSegClassMappingV2','MultiViewsPointSegClassMapping',
+    'BboxRecalculation', 'MultiViewsBboxRecalculation', 'GlobalRotScaleTransV2'
 
 ]

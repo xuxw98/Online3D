@@ -32,7 +32,7 @@ python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_ma
 
 **Step 3.** Generate online data by:
 ```
-python Test_GT_Maker/generate_online_data.py
+python generate_online_data.py
 ```
 
 **Step 4.** Generate .pkl files by:
@@ -63,7 +63,7 @@ scannet-mv
 │   │   │   ├── xxxxxx.png
 │   │   ├── pose
 │   │       ├── xxxxxx.txt
-├── Test_GT_Maker/generate_online_data.py
+├── generate_online_data.py
 ├── instance_mask
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
@@ -73,12 +73,14 @@ scannet-mv
 ├── point
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
-├── box
+├── modal_box
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
-├── amodal_box
+├── amodal_box_mask
 │   ├── scenexxxx_xx
 │   │   ├── xxxxxx.npy
+├── scene_amodal_box
+│   ├── scenexxxx_xx.npy
 ├── scannet_mv_infos_train.pkl
 └── scannet_mv_infos_val.pkl
 

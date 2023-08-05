@@ -175,7 +175,7 @@ class TD3DInstanceSegmentorFF(Base3DDetector):
                                          pts_semantic_mask, pts_instance_mask, img_metas)
         return losses
 
-    def simple_test(self, points, img, img_metas, *args, **kwargs):
+    def simple_test(self, points, img_metas, img, *args, **kwargs):
         """Test without augmentations.
 
         Args:

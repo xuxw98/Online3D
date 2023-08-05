@@ -7,6 +7,7 @@ from mmdet3d.core.bbox import BaseInstance3DBoxes
 from mmdet3d.core.points import BasePoints
 from mmdet.datasets.pipelines import to_tensor
 from ..builder import PIPELINES
+import pdb
 
 
 def make_intrinsic(fx, fy, mx, my):
@@ -184,6 +185,7 @@ class Collect3D(object):
         data['img_metas'] = DC(img_metas, cpu_only=True)
         for key in self.keys:
             data[key] = results[key]
+        
         return data
 
     def __repr__(self):
@@ -332,8 +334,8 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
             channels = results['points'].tensor.shape[-1]
             results['points'] = DC(results['points'].tensor.reshape(-1, 5000, channels))
         
-        if 'box_masks' in results:
-            results['box_masks'] = DC(to_tensor(np.array(results['box_masks'])), stack=False)
+        if 'amodal_box_mask' in results:
+            results['amodal_box_mask'] = DC(to_tensor(np.array(results['amodal_box_mask'])), stack=False)
 
         for key in ['voxels', 'coors', 'voxel_centers', 'num_points']:
             if key not in results:
@@ -349,7 +351,34 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
                     intrinsic @ np.linalg.inv(pose))
             results['depth2img'] = depth2img
 
+        if 'modal_box' in results:
+            if isinstance(results['modal_box'], BaseInstance3DBoxes):
+                results['modal_box'] = DC(
+                    results['modal_box'], cpu_only=True)
+            else:
+                results['modal_box'] = DC(
+                    to_tensor(results['modal_box']))
+        if 'modal_label' in results:
+            if isinstance(results['modal_label'], list):
+                results['modal_label'] = DC([to_tensor(res) for res in results['modal_label']])
+            else:
+                results['modal_label'] = DC(to_tensor(results['modal_label']))
+        if 'amodal_box' in results:
+            if isinstance(results['amodal_box'], BaseInstance3DBoxes):
+                results['amodal_box'] = DC(
+                    results['amodal_box'], cpu_only=True)
+            else:
+                results['amodal_box'] = DC(
+                    to_tensor(results['amodal_box']))
+        if 'amodal_label' in results:
+            if isinstance(results['amodal_label'], list):
+                results['amodal_label'] = DC([to_tensor(res) for res in results['amodal_label']])
+            else:
+                results['amodal_label'] = DC(to_tensor(results['amodal_label']))
+                
+
         if self.with_gt:
+
             # Clean GT bboxes in the final
             if 'gt_bboxes_3d_mask' in results:
                 gt_bboxes_3d_mask = results['gt_bboxes_3d_mask']

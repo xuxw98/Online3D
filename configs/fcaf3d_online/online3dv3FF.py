@@ -3,15 +3,16 @@ num_slice = 1
 len_slice = 5
 
 model = dict(
-    type='MinkOnline3DDetector_V3FF',
+    type='SingleStageSparse3DDetectorFF_OnlineV3',
     voxel_size=.01,
     evaluator_mode=evaluator_mode,
     num_slice=num_slice,
     len_slice=len_slice,
     img_backbone=dict(type='Resnet_FPN_Backbone',),
-    backbone=dict(type='MinkFFResNet', in_channels=3, depth=34),
-    head=dict(
-        type='Online3DHead_V3',
+    backbone=dict(type='MEFFResNet3D', in_channels=3, depth=34),
+    memory=dict(type='MultilevelMemory', in_channels=[64, 128, 256, 512]),
+    neck_with_head=dict(
+        type='Fcaf3DNeckWithHead_OnlineV3',
         in_channels=(64, 128, 256, 512),
         out_channels=128,
         voxel_size=.01,

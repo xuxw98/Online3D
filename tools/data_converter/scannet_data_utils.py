@@ -6,6 +6,7 @@ from os import path as osp
 import mmcv
 import numpy as np
 import math
+import pdb
 
 
 class ScanNetData(object):
@@ -320,8 +321,9 @@ class ScanNetMVData(object):
         ]
         self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
         self.label2cat = {self.cat2label[t]: t for t in self.cat2label}
-        self.cat_ids = np.array(
-            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+        self.cat_ids = np.arange(18)
+        # self.cat_ids = np.array(
+        #     [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
         self.cat_ids2class = {
             nyu40id: i
             for i, nyu40id in enumerate(list(self.cat_ids))
@@ -383,36 +385,42 @@ class ScanNetMVData(object):
                 amodal_boxes.append(np.load(osp.join(path.replace('point', 'amodal_box'), file)))
                 pose = np.asarray(
                     [[float(x[0]), float(x[1]), float(x[2]), float(x[3])] for x in
-                    (x.split(" ") for x in open(osp.join('2D', idx, 'pose', file.replace('npy', 'txt'))).read().splitlines())]
+                    (x.split(" ") for x in open(osp.join(path.replace('point', '2D'), idx, 'pose', file.replace('npy', 'txt'))).read().splitlines())]
                 )
                 poses.append(pose)
         return point_paths, image_paths, boxes, amodal_boxes, poses
     
     def get_points_images_instance_semantic_masks_poses(self, idx):
+        # if idx == 'scene0191_00':
+        #     pdb.set_trace()
         point_paths = []
         image_paths = []
         instance_paths = []
         semantic_paths = []
-        boxes = []
-        amodal_boxes = []
+        modal_boxes = []
+        amodal_box_masks = []
         poses = []
         path = osp.join(self.root_dir, 'point', idx)
         files = os.listdir(path); files.sort(key=lambda x: int(x.split('/')[-1][:-4]))
         for file in files:
+            # if idx == 'scene0191_00':
+            #     pdb.set_trace()
             frame_id = int(file.split('.')[0])
             if file.endswith('.npy') and (frame_id % self.interval == 0):
+                # if idx == 'scene0191_00':
+                #     pdb.set_trace()
                 point_paths.append(osp.join('point', idx, file))
                 image_paths.append(osp.join('2D', idx, 'color', file.replace('npy', 'jpg')))
                 instance_paths.append(osp.join('instance_mask', idx, file))
                 semantic_paths.append(osp.join('semantic_mask', idx, file))
-                boxes.append(np.load(osp.join(path.replace('point', 'box'), file)))
-                amodal_boxes.append(np.load(osp.join(path.replace('point', 'amodal_box'), file)))
+                modal_boxes.append(np.load(osp.join(path.replace('point', 'modal_box'), file)))
+                amodal_box_masks.append(np.load(osp.join(path.replace('point', 'amodal_box_mask'), file)))
                 pose = np.asarray(
                     [[float(x[0]), float(x[1]), float(x[2]), float(x[3])] for x in
-                    (x.split(" ") for x in open(osp.join('2D', idx, 'pose', file.replace('npy', 'txt'))).read().splitlines())]
+                    (x.split(" ") for x in open(osp.join(path.replace('point', '2D'), 'pose', file.replace('npy', 'txt'))).read().splitlines())]
                 )
                 poses.append(pose)
-        return point_paths, image_paths, instance_paths, semantic_paths, boxes, amodal_boxes, poses
+        return point_paths, image_paths, instance_paths, semantic_paths, modal_boxes, amodal_box_masks, poses
     
     def align_poses(self, axis_align_matrix, poses):
         aligned_poses = []
@@ -448,7 +456,7 @@ class ScanNetMVData(object):
             info['point_cloud'] = pc_info
 
             # pts_paths, img_paths, box_masks, poses = self.get_points_images_masks_poses(sample_idx)
-            pts_paths, img_paths, instance_paths, semantic_paths, boxes, amodal_boxes, poses = self.get_points_images_instance_semantic_masks_poses(sample_idx)
+            pts_paths, img_paths, instance_paths, semantic_paths, modal_boxes, amodal_box_masks, poses = self.get_points_images_instance_semantic_masks_poses(sample_idx)
             axis_align_matrix = self.get_axis_align_matrix(sample_idx)
             poses = self.align_poses(axis_align_matrix, poses)
             # TODO: check if any path is invalid
@@ -458,15 +466,16 @@ class ScanNetMVData(object):
             info['instance_paths'] = instance_paths
             info['semantic_paths'] = semantic_paths
             # info['box_masks'] = box_masks
+            scene_amodal_boxes = np.load(osp.join(self.root_dir, 'scene_amodal_box', '%s.npy'%(sample_idx)))
 
 
             if has_label:
                 annotations = {}
                 # box is of shape [k, 6 + class]
-                aligned_box_label = np.concatenate(boxes, axis=0)
+                aligned_box_label = scene_amodal_boxes
                 annotations['gt_num'] = aligned_box_label.shape[0]
                 if annotations['gt_num'] != 0:
-                    aligned_box = aligned_box_label[:, :-1]  # k, 6
+                    aligned_box = aligned_box_label[:, :6]  # k, 6
                     classes = aligned_box_label[:, -1]  # k
                     annotations['name'] = np.array([
                         self.label2cat[self.cat_ids2class[classes[i]]]
@@ -486,15 +495,8 @@ class ScanNetMVData(object):
 
 
                 annotations['axis_align_matrix'] = axis_align_matrix  # 4x4
-                annotations['box'] = boxes
-                annotations['amodal_box'] = amodal_boxes
-                per_frame_class = []
-                for k in range(len(boxes)):
-                    per_frame_class.append(np.array([
-                    self.cat_ids2class[boxes[i,6]]
-                    for i in range(boxes[k].shape[0])
-                ]))
-                annotations['per_frame_class'] = per_frame_class
+                annotations['modal_boxes'] = modal_boxes
+                annotations['amodal_box_masks'] = amodal_box_masks
                 info['annos'] = annotations
             return info
 

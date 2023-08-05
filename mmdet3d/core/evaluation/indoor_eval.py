@@ -361,15 +361,15 @@ def multiview_indoor_eval(gt_annos,
         # as short as I can 
         if evaluator_mode == 'slice_len_constant':
             i=1
-            while i*len_slice<len(gt_anno['box']):
+            while i*len_slice<len(gt_anno['modal_boxes']):
                 timestamps.append(i*len_slice)
                 i=i+1
-            timestamps.append(len(gt_anno['box']))
+            timestamps.append(len(gt_anno['modal_boxes']))
         else:
-            num_slice = min(len(gt_anno['box']),num_slice)
+            num_slice = min(len(gt_anno['modal_boxes']),num_slice)
             for i in range(1,num_slice):
-                timestamps.append(i*(len(gt_anno['box'])//num_slice))
-            timestamps.append(len(gt_anno['box']))
+                timestamps.append(i*(len(gt_anno['modal_boxes'])//num_slice))
+            timestamps.append(len(gt_anno['modal_boxes']))
 
         # online evaluation
         for j in range(len(timestamps)):
@@ -393,17 +393,15 @@ def multiview_indoor_eval(gt_annos,
             # parse gt annotations
             if with_box_mask:
                 if j == 0:
-                    box_whole = np.concatenate(gt_anno['box'][:ts], axis=0)[:,:6]
-                    class_whole = np.concatenate(gt_anno['per_frame_class'][:ts], axis=0)
+                    box_mask_whole = np.array(gt_anno['amodal_box_masks'])[:ts, :].sum(0).astype('bool')
                 else:
-                    box_whole = np.concatenate(gt_anno['box'][timestamps[j-1]:ts], axis=0)[:,:6]
-                    class_whole = np.concatenate(gt_anno['per_frame_class'][timestamps[j-1]:ts], axis=0)
-                if gt_anno['gt_num'] != 0 and box_whole.shape[0] > 0:
+                    box_mask_whole = np.array(gt_anno['amodal_box_masks'])[timestamps[j-1]:ts, :].sum(0).astype('bool')
+                if gt_anno['gt_num'] != 0 and sum(box_mask_whole) > 0:
                     gt_boxes = box_type_3d(
-                        box_whole,
-                        box_dim=box_whole.shape[-1],
+                        gt_anno['gt_boxes_upright_depth'][box_mask_whole],
+                        box_dim=gt_anno['gt_boxes_upright_depth'][box_mask_whole].shape[-1],
                         origin=(0.5, 0.5, 0.5)).convert_to(box_mode_3d)
-                    labels_3d = class_whole
+                    labels_3d = gt_anno['class'][box_mask_whole]
                 else:
                     gt_boxes = box_type_3d(np.array([], dtype=np.float32))
                     labels_3d = np.array([], dtype=np.int64)

@@ -4,6 +4,7 @@ from os import path as osp
 import mmcv
 import numpy as np
 import trimesh
+import imageio
 
 from .image_vis import (draw_camera_bbox3d_on_img, draw_depth_bbox3d_on_img,
                         draw_lidar_bbox3d_on_img)
@@ -215,6 +216,81 @@ def show_seg_result(points,
     if pred_seg is not None:
         _write_obj(pred_seg_color, osp.join(result_path,
                                             f'{filename}_pred.obj'))
+
+
+def show_online_seg_result(points_all,
+                    gt_seg_all,
+                    pred_seg_all,
+                    out_dir,
+                    filename,
+                    palette_all,
+                    ignore_index=None,
+                    show=False,
+                    snapshot=False):
+    """Convert results into format that is directly readable for meshlab.
+
+    Args:
+        points (np.ndarray): Points.
+        gt_seg (np.ndarray): Ground truth segmentation mask.
+        pred_seg (np.ndarray): Predicted segmentation mask.
+        out_dir (str): Path of output directory
+        filename (str): Filename of the current frame.
+        palette (np.ndarray): Mapping between class labels and colors.
+        ignore_index (int, optional): The label index to be ignored, e.g.
+            unannotated points. Defaults to None.
+        show (bool, optional): Visualize the results online. Defaults to False.
+        snapshot (bool, optional): Whether to save the online results.
+            Defaults to False.
+    """
+    num_frames = len(points_all)
+    result_path = osp.join(out_dir, filename)
+    mmcv.mkdir_or_exist(result_path)
+    pic = []
+    for i in range(num_frames):
+        points = points_all[i]
+        gt_seg = gt_seg_all[i]
+        pred_seg = pred_seg_all[i]
+        palette = palette_all[i]
+
+        # we need 3D coordinates to visualize segmentation mask
+        if gt_seg is not None or pred_seg is not None:
+            assert points is not None, \
+                '3D coordinates are required for segmentation visualization'
+
+        # filter out ignored points
+        if gt_seg is not None and ignore_index is not None:
+            if points is not None:
+                points = points[gt_seg != ignore_index]
+            if pred_seg is not None:
+                pred_seg = pred_seg[gt_seg != ignore_index]
+            gt_seg = gt_seg[gt_seg != ignore_index]
+
+        if gt_seg is not None:
+            gt_seg_color = palette[gt_seg]
+            gt_seg_color = np.concatenate([points[:, :3], gt_seg_color], axis=1)
+        if pred_seg is not None:
+            pred_seg_color = palette[pred_seg]
+            pred_seg_color = np.concatenate([points[:, :3], pred_seg_color],
+                                            axis=1)
+
+        # online visualization of segmentation mask
+        # we show three masks in a row, scene_points, gt_mask, pred_mask
+        if show:
+            from .open3d_vis import Visualizer
+            mode = 'xyzrgb' if points.shape[1] == 6 else 'xyz'
+            vis = Visualizer(points, mode=mode)
+            if gt_seg is not None:
+                vis.add_seg_mask(gt_seg_color)
+            if pred_seg is not None:
+                vis.add_seg_mask(pred_seg_color)
+            show_path = osp.join(result_path,
+                                f'{filename}_{i}_online.png') if snapshot else None
+            vis.show(show_path)
+            pic.append(imageio.imread(save_path))
+
+
+    imageio.mimsave(osp.join(result_path,f'{filename}_online.gif'), png, fps=5)	# fps值越大，生成的gif图播放就越快
+
 
 
 def show_multi_modality_result(img,

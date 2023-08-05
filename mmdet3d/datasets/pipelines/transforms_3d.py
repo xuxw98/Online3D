@@ -9,12 +9,14 @@ from mmcv.utils import build_from_cfg
 
 from mmdet3d.core import VoxelGenerator
 from mmdet3d.core.bbox import (CameraInstance3DBoxes, DepthInstance3DBoxes,
-                               LiDARInstance3DBoxes, box_np_ops)
+                               LiDARInstance3DBoxes, box_np_ops,
+                               BaseInstance3DBoxes)
 from mmdet3d.datasets.pipelines.compose import Compose
 from mmdet.datasets.pipelines import RandomCrop, RandomFlip, Rotate
 from ..builder import OBJECTSAMPLERS, PIPELINES
 from .data_augment_utils import noise_per_object_v3_
 import torch
+import pdb
 
 @PIPELINES.register_module()
 class RandomDropPointsColor(object):
@@ -1322,6 +1324,117 @@ class PointSample(object):
         repr_str += f' replace={self.replace})'
 
         return repr_str
+    
+
+@PIPELINES.register_module()
+class MultiViewsPointSample(object):
+    """Point sample.
+
+    Sampling data to a certain number.
+
+    Args:
+        num_points (int): Number of points to be sampled.
+        sample_range (float, optional): The range where to sample points.
+            If not None, the points with depth larger than `sample_range` are
+            prior to be sampled. Defaults to None.
+        replace (bool, optional): Whether the sampling is with or without
+            replacement. Defaults to False.
+    """
+
+    def __init__(self, num_points, sample_range=None, replace=False):
+        self.num_points = num_points
+        self.sample_range = sample_range
+        self.replace = replace
+    def _points_random_sampling(self,
+                                points,
+                                num_samples,
+                                sample_range=None,
+                                replace=False,
+                                return_choices=False):
+        """Points random sampling.
+
+        Sample points to a certain number.
+
+        Args:
+            points (np.ndarray | :obj:`BasePoints`): 3D Points.
+            num_samples (int): Number of samples to be sampled.
+            sample_range (float, optional): Indicating the range where the
+                points will be sampled. Defaults to None.
+            replace (bool, optional): Sampling with or without replacement.
+                Defaults to None.
+            return_choices (bool, optional): Whether return choice.
+                Defaults to False.
+        Returns:
+            tuple[np.ndarray] | np.ndarray:
+                - points (np.ndarray | :obj:`BasePoints`): 3D Points.
+                - choices (np.ndarray, optional): The generated random samples.
+        """
+        if not replace:
+            replace = (points.shape[0] < num_samples)
+        point_range = range(len(points))
+        if sample_range is not None and not replace:
+            # Only sampling the near points when len(points) >= num_samples
+            dist = np.linalg.norm(points.tensor, axis=1)
+            far_inds = np.where(dist >= sample_range)[0]
+            near_inds = np.where(dist < sample_range)[0]
+            # in case there are too many far points
+            if len(far_inds) > num_samples:
+                far_inds = np.random.choice(
+                    far_inds, num_samples, replace=False)
+            point_range = near_inds
+            num_samples -= len(far_inds)
+        choices = np.random.choice(point_range, num_samples, replace=replace)
+        if sample_range is not None and not replace:
+            choices = np.concatenate((far_inds, choices))
+            # Shuffle points after sampling
+            np.random.shuffle(choices)
+        if return_choices:
+            return points[choices], choices
+        else:
+            return points[choices]
+
+    def __call__(self, results):
+        """Call function to sample points to in indoor scenes.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+        Returns:
+            dict: Results after sampling, 'points', 'pts_instance_mask'
+                and 'pts_semantic_mask' keys are updated in the result dict.
+        """
+        dims = results['points'].shape[-1]
+        points = results['points'].reshape(results['num_frames'],-1,dims)
+        points_new = []
+        for i in range(results['num_frames']):
+            points_res, choices = self._points_random_sampling(
+                points[i],
+                self.num_points,
+                self.sample_range,
+                self.replace,
+                return_choices=True)
+            points_new.append(points_res)
+
+            pts_instance_mask = results.get('pts_instance_mask', None)
+            pts_semantic_mask = results.get('pts_semantic_mask', None)
+            if pts_instance_mask is not None:
+                results['pts_instance_mask'][i] = pts_instance_mask[i][choices]
+
+            if pts_semantic_mask is not None:
+                results['pts_semantic_mask'][i] = pts_semantic_mask[i][choices]
+
+        points = np.concatenate(points_new, axis=0)
+        results['points'] = points.reshape(-1,dims)
+        return results
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(num_points={self.num_points},'
+        repr_str += f' sample_range={self.sample_range},'
+        repr_str += f' replace={self.replace})'
+
+        return repr_str
+    
 
 
 @PIPELINES.register_module()
@@ -2051,10 +2164,117 @@ class RandomShiftScale(object):
 @PIPELINES.register_module()
 class BboxRecalculation(object):
 
+    def calculate_box_label(self, pts_semantic_mask_expand):
+        pts_semantic_mask_expand = pts_semantic_mask_expand.transpose(1,0)
+        label_match_num = [torch.sum(pts_semantic_mask_expand == i, dim=1).unsqueeze(1) for i in range(torch.max(pts_semantic_mask_expand)+1)]
+        label_match_res = torch.cat(label_match_num, dim=1)
+        label_match_res = label_match_res.max(axis=1)[1]
+        return label_match_res
+
     def __call__(self, input_dict):
-        pts_instance_mask = torch.tensor(input_dict['pts_instance_mask'])
+        pts_instance_mask = torch.tensor(input_dict['pts_instance_mask']).to(torch.int64)
+        if torch.sum(pts_instance_mask == -1) != 0:
+            pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
+            pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)[
+                :, :-1
+            ]
+        else:
+            pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
+        points = input_dict['points'][:, :3].tensor
+        points_for_max = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
+        points_for_min = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
+        points_for_max[~pts_instance_mask_one_hot.bool()] = float('-inf')
+        points_for_min[~pts_instance_mask_one_hot.bool()] = float('inf')
+        bboxes_max = points_for_max.max(axis=0)[0]
+        bboxes_min = points_for_min.min(axis=0)[0]
+        bboxes_sizes = bboxes_max - bboxes_min
+        bboxes_centers = (bboxes_max + bboxes_min) / 2
+        bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
+        input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+
+        # pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
+        # pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
+        # pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
+        # assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
+        # input_dict['gt_labels_3d'] = pts_semantic_mask_expand.max(axis=0)[0].numpy()
+
+        pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
+        pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
+        pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
+        max_box_labels = self.calculate_box_label(pts_semantic_mask_expand)
+        input_dict['gt_labels_3d'] = max_box_labels
+
+        return input_dict
+
+
+
+@PIPELINES.register_module()
+class MultiViewsBboxRecalculation(object):
+
+    def calculate_box_label(self, pts_semantic_mask_expand):
+        pts_semantic_mask_expand = pts_semantic_mask_expand.transpose(1,0)
+        label_match_num = [torch.sum(pts_semantic_mask_expand == i, dim=1).unsqueeze(1) for i in range(torch.max(pts_semantic_mask_expand)+1)]
+        label_match_res = torch.cat(label_match_num, dim=1)
+        label_match_res = label_match_res.max(axis=1)[1]
+        return label_match_res
+    
+    def select_scene(self, bboxes, instances, max_box_labels):
+        assert bboxes.shape[0] == instances.shape[0]
+        assert max_box_labels.shape[0] == instances.shape[0]
+        scene_bboxes = []
+        scene_instances = []
+        scene_labels = []
+        for i in range(max_box_labels.shape[0]):
+            if max_box_labels[i] != torch.max(max_box_labels):
+                scene_bboxes.append(bboxes[i,:].unsqueeze(0))
+                scene_instances.append(instances[i].unsqueeze(0))
+                scene_labels.append(max_box_labels[i].unsqueeze(0))
+        scene_bboxes = np.concatenate(scene_bboxes, axis=0)
+        scene_instances = np.concatenate(scene_instances, axis=0)
+        scene_labels = np.concatenate(scene_labels, axis=0)
+        return scene_bboxes, scene_instances, scene_labels
+
+        
+    def match_box(self, modal_data, scene_data):
+        [modal_bboxes, modal_instances, modal_labels] = modal_data 
+        [scene_bboxes, scene_instances, scene_labels] = scene_data
+
+        modal_bboxes_new = []
+        modal_instances_new = []
+        modal_labels_new = []
+        amodal_box_mask = []
+        amodal_bboxes_new = []
+        amodal_labels_new = []
+        for i in range(scene_instances.shape[0]):
+            match_res = False
+            for j in range(modal_instances.shape[0]):
+                if modal_instances[j]==scene_instances[i]:
+                    modal_bboxes_new.append(modal_bboxes[j,:].reshape(1,-1))
+                    modal_instances_new.append(scene_instances[i])
+                    modal_labels_new.append(scene_labels[i])
+                    amodal_bboxes_new.append(scene_bboxes[i,:].reshape(1,-1))
+                    amodal_labels_new.append(scene_labels[i])
+
+                    match_res = True
+            amodal_box_mask.append(match_res)
+        
+        modal_bboxes_new = np.concatenate(modal_bboxes_new, axis=0)
+        modal_instances_new = np.array(modal_instances_new)
+        modal_labels_new = np.array(modal_labels_new)
+        amodal_box_mask = np.array(amodal_box_mask)
+        amodal_bboxes_new = np.concatenate(amodal_bboxes_new, axis=0)
+        amodal_labels_new = np.array(amodal_labels_new)
+
+        return modal_bboxes_new, modal_instances_new, modal_labels_new, amodal_box_mask, amodal_bboxes_new, amodal_labels_new
+
+    def __call__(self, input_dict):
+        # process scene amodal box
+        dims = input_dict['points'].shape[-1]
+        points = input_dict['points'].tensor
+        pts_instance_mask = torch.tensor(input_dict['pts_instance_mask']).to(torch.int64)
 
         if torch.sum(pts_instance_mask == -1) != 0:
+            # throw things you don't want
             pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
             pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)[
                 :, :-1
@@ -2072,13 +2292,94 @@ class BboxRecalculation(object):
         bboxes_sizes = bboxes_max - bboxes_min
         bboxes_centers = (bboxes_max + bboxes_min) / 2
         bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
-        input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+        instances = torch.arange(pts_instance_mask_one_hot.shape[1])
+        # input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
 
         pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
         pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
         pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
-        assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
-        input_dict['gt_labels_3d'] = pts_semantic_mask_expand.max(axis=0)[0].numpy()
+        
+        max_box_labels = self.calculate_box_label(pts_semantic_mask_expand)
+        scene_bboxes, scene_instances, scene_labels = self.select_scene(bboxes, instances, max_box_labels) 
+        
+        input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(scene_bboxes, with_yaw=False, origin=(.5, .5, .5))
+        input_dict['gt_labels_3d'] = scene_labels
+
+        # process modal box and generate amodal mask 
+        points = input_dict['points']
+        points.tensor = points.tensor[input_dict['num_amodal_points']:,:]
+        pts_instance_mask = input_dict['pts_instance_mask'][input_dict['num_amodal_points']:]
+        pts_semantic_mask = input_dict['pts_semantic_mask'][input_dict['num_amodal_points']:]
+        input_dict['points'] = points
+        input_dict['pts_instance_mask'] = pts_instance_mask.reshape(input_dict['num_frames'], -1)
+        input_dict['pts_semantic_mask'] = pts_semantic_mask.reshape(input_dict['num_frames'], -1)
+        points = points.tensor.reshape(input_dict['num_frames'], -1, dims)
+        pts_instance_mask_all = pts_instance_mask.reshape(input_dict['num_frames'], -1)
+        pts_semantic_mask_all = pts_semantic_mask.reshape(input_dict['num_frames'], -1)
+
+        gt_modal_bboxes = []
+        gt_modal_labels = []
+        gt_amodal_bboxes = []
+        gt_amodal_labels = []
+
+        for i in range(input_dict['num_frames']):
+            pts_instance_mask = pts_instance_mask_all[i,:]
+            instance_unique = np.array(list(set(pts_instance_mask)))
+            
+            instance_convert = {instance_unique[i]: i for i in range(instance_unique.shape[0])}
+            for j in range(pts_instance_mask.shape[0]):
+                pts_instance_mask[j] = instance_convert[pts_instance_mask[j]]
+            pts_instance_mask = torch.tensor(pts_instance_mask).to(torch.int64)
+
+            # np unique
+
+            if torch.sum(pts_instance_mask == -1) != 0:
+                pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
+                pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)[
+                    :, :-1
+                ]
+            else:
+                pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
+
+            points_new = points[i,:, :3]
+            points_for_max = points_new.unsqueeze(1).expand(points_new.shape[0], pts_instance_mask_one_hot.shape[1], points_new.shape[1]).clone()
+            points_for_min = points_new.unsqueeze(1).expand(points_new.shape[0], pts_instance_mask_one_hot.shape[1], points_new.shape[1]).clone()
+            points_for_max[~pts_instance_mask_one_hot.bool()] = float('-inf')
+            points_for_min[~pts_instance_mask_one_hot.bool()] = float('inf')
+            bboxes_max = points_for_max.max(axis=0)[0]
+            bboxes_min = points_for_min.min(axis=0)[0]
+            bboxes_sizes = bboxes_max - bboxes_min
+            bboxes_centers = (bboxes_max + bboxes_min) / 2
+            bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
+            # only for amodal_box now
+            #input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+            #input_dict["box"][i] = input_dict["box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+            #input_dict["amodal_box"][i] = input_dict["amodal_box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+
+            # new
+            pts_semantic_mask = torch.tensor(pts_semantic_mask_all[i,:])
+            pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
+            pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
+            
+            max_box_labels = self.calculate_box_label(pts_semantic_mask_expand)
+            instances = torch.tensor(instance_unique)
+            modal_bboxes = bboxes
+            modal_instances = instances
+            modal_labels = max_box_labels
+            # modal_bboxes, modal_instances, modal_labels = self.select_scene(bboxes, instances, max_box_labels) 
+        
+            # wait for processing
+            modal_bboxes, modal_instances, modal_labels, amodal_box_mask, amodal_bboxes, amodal_labels = self.match_box([modal_bboxes, modal_instances, modal_labels], [scene_bboxes, scene_instances, scene_labels])
+            gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(modal_bboxes, with_yaw=False, origin=(.5, .5, .5)))
+            gt_modal_labels.append(modal_labels)
+            gt_amodal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(amodal_bboxes, with_yaw=False, origin=(.5, .5, .5)))
+            gt_amodal_labels.append(amodal_labels)
+
+        input_dict['modal_box'] = gt_modal_bboxes
+        input_dict['modal_label'] = gt_modal_labels
+        input_dict['amodal_box'] = gt_amodal_bboxes
+        input_dict['amodal_label'] = gt_amodal_labels
+
         return input_dict
 
 

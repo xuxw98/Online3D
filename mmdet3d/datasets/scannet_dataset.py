@@ -583,6 +583,15 @@ class ScanNetMVDataset(Custom3DDataset):
             for img_path in info['img_paths']:
                 img_info.append(
                     dict(filename=osp.join(self.data_root, img_path)))
+            instance_info = []
+            for instance_path in info['instance_paths']:
+                instance_info.append(
+                    dict(filename=osp.join(self.data_root, instance_path)))
+            semantic_info = []
+            for semantic_path in info['semantic_paths']:
+                semantic_info.append(
+                    dict(filename=osp.join(self.data_root, semantic_path)))
+                
             axis_align_matrix = self._get_axis_align_matrix(info)
             # depth2img = []
             # intrinsic = np.array([[288.9353025,0,159.5,0],[0,288.9353025,119.5,0],[0,0,1,0],[0,0,0,1]])
@@ -595,6 +604,8 @@ class ScanNetMVDataset(Custom3DDataset):
             input_dict['img_info'] = img_info
             #input_dict['depth2img'] = depth2img
             input_dict['poses'] = poses
+            input_dict['instance_info'] = instance_info
+            input_dict['semantic_info'] = semantic_info
 
         if not self.test_mode:
             annos = self.get_ann_info(index)
@@ -638,12 +649,15 @@ class ScanNetMVDataset(Custom3DDataset):
             origin=(0.5, 0.5, 0.5)).convert_to(self.box_mode_3d)
 
         axis_align_matrix = self._get_axis_align_matrix(info)
-        # box_masks = info['annos']['box_masks']
+        modal_boxes = info['annos']['modal_boxes']
+        amodal_box_masks = info['annos']['amodal_box_masks']
 
         anns_results = dict(
             gt_bboxes_3d=gt_bboxes_3d,
             gt_labels_3d=gt_labels_3d,
-            axis_align_matrix=axis_align_matrix)
+            axis_align_matrix=axis_align_matrix,
+            modal_boxes=modal_boxes,
+            amodal_box_masks=amodal_box_masks)
         return anns_results
 
     def prepare_test_data(self, index):
@@ -997,399 +1011,4 @@ class ScanNetSegDataset(Custom3DSegDataset):
             outputs.append(dict(seg_mask=pred_label))
 
         return outputs, tmp_dir
-
-
-@DATASETS.register_module()
-@SEG_DATASETS.register_module()
-class ScanNetInstanceSegDataset(Custom3DSegDataset):
-    CLASSES = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
-               'bookshelf', 'picture', 'counter', 'desk', 'curtain',
-               'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
-               'garbagebin')
-
-    VALID_CLASS_IDS = (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34,
-                       36, 39)
-
-    ALL_CLASS_IDS = tuple(range(41))
-
-    def get_ann_info(self, index):
-        """Get annotation info according to the given index.
-
-        Args:
-            index (int): Index of the annotation data to get.
-
-        Returns:
-            dict: annotation information consists of the following keys:
-                - pts_semantic_mask_path (str): Path of semantic masks.
-                - pts_instance_mask_path (str): Path of instance masks.
-        """
-        # Use index to get the annos, thus the evalhook could also use this api
-        info = self.data_infos[index]
-
-        pts_instance_mask_path = osp.join(self.data_root,
-                                          info['pts_instance_mask_path'])
-        pts_semantic_mask_path = osp.join(self.data_root,
-                                          info['pts_semantic_mask_path'])
-
-        anns_results = dict(
-            pts_instance_mask_path=pts_instance_mask_path,
-            pts_semantic_mask_path=pts_semantic_mask_path)
-        return anns_results
-
-    def get_classes_and_palette(self, classes=None, palette=None):
-        """Get class names of current dataset. Palette is simply ignored for
-        instance segmentation.
-
-        Args:
-            classes (Sequence[str] | str | None): If classes is None, use
-                default CLASSES defined by builtin dataset. If classes is a
-                string, take it as a file name. The file contains the name of
-                classes where each line contains one class name. If classes is
-                a tuple or list, override the CLASSES defined by the dataset.
-                Defaults to None.
-            palette (Sequence[Sequence[int]]] | np.ndarray | None):
-                The palette of segmentation map. If None is given, random
-                palette will be generated. Defaults to None.
-        """
-        if classes is not None:
-            return classes, None
-        return self.CLASSES, None
-
-    def _build_default_pipeline(self):
-        """Build the default pipeline for this dataset."""
-        pipeline = [
-            dict(
-                type='LoadPointsFromFile',
-                coord_type='DEPTH',
-                shift_height=False,
-                use_color=True,
-                load_dim=6,
-                use_dim=[0, 1, 2, 3, 4, 5]),
-            dict(
-                type='LoadAnnotations3D',
-                with_bbox_3d=False,
-                with_label_3d=False,
-                with_mask_3d=True,
-                with_seg_3d=True),
-            dict(
-                type='PointSegClassMapping',
-                valid_cat_ids=self.VALID_CLASS_IDS,
-                max_cat_id=40),
-            dict(
-                type='DefaultFormatBundle3D',
-                with_label=False,
-                class_names=self.CLASSES),
-            dict(
-                type='Collect3D',
-                keys=['points', 'pts_semantic_mask', 'pts_instance_mask'])
-        ]
-        return Compose(pipeline)
-
-    def evaluate(self,
-                 results,
-                 metric=None,
-                 options=None,
-                 logger=None,
-                 show=False,
-                 out_dir=None,
-                 pipeline=None):
-        """Evaluation in instance segmentation protocol.
-
-        Args:
-            results (list[dict]): List of results.
-            metric (str | list[str]): Metrics to be evaluated.
-            options (dict, optional): options for instance_seg_eval.
-            logger (logging.Logger | None | str): Logger used for printing
-                related information during evaluation. Defaults to None.
-            show (bool, optional): Whether to visualize.
-                Defaults to False.
-            out_dir (str, optional): Path to save the visualization results.
-                Defaults to None.
-            pipeline (list[dict], optional): raw data loading for showing.
-                Default: None.
-
-        Returns:
-            dict: Evaluation results.
-        """
-        assert isinstance(
-            results, list), f'Expect results to be list, got {type(results)}.'
-        assert len(results) > 0, 'Expect length of results > 0.'
-        assert len(results) == len(self.data_infos)
-        assert isinstance(
-            results[0], dict
-        ), f'Expect elements in results to be dict, got {type(results[0])}.'
-
-        load_pipeline = self._get_pipeline(pipeline)
-        pred_instance_masks = [result['instance_mask'] for result in results]
-        pred_instance_labels = [result['instance_label'] for result in results]
-        pred_instance_scores = [result['instance_score'] for result in results]
-        gt_semantic_masks, gt_instance_masks = zip(*[
-            self._extract_data(
-                index=i,
-                pipeline=load_pipeline,
-                key=['pts_semantic_mask', 'pts_instance_mask'],
-                load_annos=True) for i in range(len(self.data_infos))
-        ])
-        ret_dict = instance_seg_eval(
-            gt_semantic_masks,
-            gt_instance_masks,
-            pred_instance_masks,
-            pred_instance_labels,
-            pred_instance_scores,
-            valid_class_ids=self.VALID_CLASS_IDS,
-            class_labels=self.CLASSES,
-            options=options,
-            logger=logger)
-
-        if show:
-            raise NotImplementedError('show is not implemented for now')
-
-        return ret_dict
-    
-@DATASETS.register_module()
-class ScanNetInstanceSegV2Dataset(ScanNetDataset):
-    VALID_CLASS_IDS = (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28,
-                       33, 34, 36, 39)
-
-    def _build_default_pipeline(self):
-        """Build the default pipeline for this dataset."""
-        pipeline = [
-            dict(
-                type='LoadPointsFromFile',
-                coord_type='DEPTH',
-                shift_height=False,
-                use_color=True,
-                load_dim=6,
-                use_dim=[0, 1, 2, 3, 4, 5]),
-            dict(
-                type='LoadAnnotations3D',
-                with_bbox_3d=False,
-                with_label_3d=False,
-                with_mask_3d=True,
-                with_seg_3d=True),
-            dict(
-                type='DefaultFormatBundle3D',
-                with_label=False,
-                class_names=self.CLASSES),
-            dict(
-                type='Collect3D',
-                keys=['points', 'pts_semantic_mask', 'pts_instance_mask'])
-        ]
-        return Compose(pipeline)
-
-    def evaluate(self,
-                 results,
-                 metric=None,
-                 options=None,
-                 logger=None,
-                 show=False,
-                 out_dir=None,
-                 pipeline=None):
-        """Evaluation in instance segmentation protocol.
-
-        Args:
-            results (list[dict]): List of results.
-            metric (str | list[str]): Metrics to be evaluated.
-            options (dict, optional): options for instance_seg_eval.
-            logger (logging.Logger | None | str): Logger used for printing
-                related information during evaluation. Defaults to None.
-            show (bool, optional): Whether to visualize.
-                Defaults to False.
-            out_dir (str, optional): Path to save the visualization results.
-                Defaults to None.
-            pipeline (list[dict], optional): raw data loading for showing.
-                Default: None.
-
-        Returns:
-            dict: Evaluation results.
-        """
-        assert isinstance(
-            results, list), f'Expect results to be list, got {type(results)}.'
-        assert len(results) > 0, 'Expect length of results > 0.'
-        assert len(results) == len(self.data_infos)
-        assert isinstance(
-            results[0], dict
-        ), f'Expect elements in results to be dict, got {type(results[0])}.'
-
-        load_pipeline = self._build_default_pipeline()
-        pred_instance_masks = [result['instance_mask'] for result in results]
-        pred_instance_labels = [result['instance_label'] for result in results]
-        pred_instance_scores = [result['instance_score'] for result in results]
-        gt_semantic_masks, gt_instance_masks = zip(*[
-            self._extract_data(
-                index=i,
-                pipeline=load_pipeline,
-                key=['pts_semantic_mask', 'pts_instance_mask'],
-                load_annos=True) for i in range(len(self.data_infos))
-        ])
-        ret_dict = instance_seg_eval_v2(
-            gt_semantic_masks,
-            gt_instance_masks,
-            pred_instance_masks,
-            pred_instance_labels,
-            pred_instance_scores,
-            valid_class_ids=self.VALID_CLASS_IDS,
-            class_labels=self.CLASSES,
-            options=options,
-            logger=logger)
-
-        if show:
-            self.show(results, out_dir)
-
-        return ret_dict
-
-    def show(self, results, out_dir, show=True, pipeline=None):
-        assert out_dir is not None, 'Expect out_dir, got none.'
-        load_pipeline = self._build_default_pipeline()
-        for i, result in enumerate(results):
-            data_info = self.data_infos[i]
-            pts_path = data_info['pts_path']
-            file_name = osp.split(pts_path)[-1].split('.')[0]
-            points, gt_instance_mask, gt_sem_mask = self._extract_data(
-                i, load_pipeline, ['points', 'pts_instance_mask', 'pts_semantic_mask'], load_annos=True)
-            points = points.numpy()
-            gt_inst_mask_final = np.zeros_like(gt_instance_mask)
-            for cls_idx in self.VALID_CLASS_IDS:
-                mask = gt_sem_mask == cls_idx
-                gt_inst_mask_final += mask.numpy()
-            gt_instance_mask[gt_inst_mask_final == 0] = -1
-
-            pred_instance_masks = result['instance_mask']
-            pred_instance_scores = result['instance_score']
-
-            pred_instance_masks_sort = pred_instance_masks[pred_instance_scores.argsort()]
-            pred_instance_masks_label = pred_instance_masks_sort[0].long() - 1
-            for i in range(1, pred_instance_masks_sort.shape[0]):
-                pred_instance_masks_label[pred_instance_masks_sort[i].bool()] = i
-
-            palette = np.random.random((max(max(pred_instance_masks_label) + 2, max(gt_instance_mask) + 2), 3)) * 255
-            palette[-1] = 255
-
-            show_seg_result(points, gt_instance_mask,
-                            pred_instance_masks_label, out_dir, file_name,
-                            palette)
-
-
-@DATASETS.register_module()
-class ScanNetSVInstanceSegV2Dataset(ScanNetSVDataset):
-    VALID_CLASS_IDS = (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28,
-                       33, 34, 36, 39)
-
-    def _build_default_pipeline(self):
-        """Build the default pipeline for this dataset."""
-        pipeline = [
-            dict(
-                type='LoadPointsFromFile',
-                coord_type='DEPTH',
-                shift_height=False,
-                use_color=True,
-                load_dim=6,
-                use_dim=[0, 1, 2, 3, 4, 5]),
-            dict(
-                type='LoadAnnotations3D',
-                with_bbox_3d=False,
-                with_label_3d=False,
-                with_mask_3d=True,
-                with_seg_3d=True),
-            dict(
-                type='DefaultFormatBundle3D',
-                with_label=False,
-                class_names=self.CLASSES),
-            dict(
-                type='Collect3D',
-                keys=['points', 'pts_semantic_mask', 'pts_instance_mask'])
-        ]
-        return Compose(pipeline)
-
-    def evaluate(self,
-                 results,
-                 metric=None,
-                 options=None,
-                 logger=None,
-                 show=False,
-                 out_dir=None,
-                 pipeline=None):
-        """Evaluation in instance segmentation protocol.
-
-        Args:
-            results (list[dict]): List of results.
-            metric (str | list[str]): Metrics to be evaluated.
-            options (dict, optional): options for instance_seg_eval.
-            logger (logging.Logger | None | str): Logger used for printing
-                related information during evaluation. Defaults to None.
-            show (bool, optional): Whether to visualize.
-                Defaults to False.
-            out_dir (str, optional): Path to save the visualization results.
-                Defaults to None.
-            pipeline (list[dict], optional): raw data loading for showing.
-                Default: None.
-
-        Returns:
-            dict: Evaluation results.
-        """
-        assert isinstance(
-            results, list), f'Expect results to be list, got {type(results)}.'
-        assert len(results) > 0, 'Expect length of results > 0.'
-        assert len(results) == len(self.data_infos)
-        assert isinstance(
-            results[0], dict
-        ), f'Expect elements in results to be dict, got {type(results[0])}.'
-
-        load_pipeline = self._build_default_pipeline()
-        pred_instance_masks = [result['instance_mask'] for result in results]
-        pred_instance_labels = [result['instance_label'] for result in results]
-        pred_instance_scores = [result['instance_score'] for result in results]
-        gt_semantic_masks, gt_instance_masks = zip(*[
-            self._extract_data(
-                index=i,
-                pipeline=load_pipeline,
-                key=['pts_semantic_mask', 'pts_instance_mask'],
-                load_annos=True) for i in range(len(self.data_infos))
-        ])
-        ret_dict = instance_seg_eval_v2(
-            gt_semantic_masks,
-            gt_instance_masks,
-            pred_instance_masks,
-            pred_instance_labels,
-            pred_instance_scores,
-            valid_class_ids=self.VALID_CLASS_IDS,
-            class_labels=self.CLASSES,
-            options=options,
-            logger=logger)
-
-        if show:
-            self.show(results, out_dir)
-
-        return ret_dict
-
-    def show(self, results, out_dir, show=True, pipeline=None):
-        assert out_dir is not None, 'Expect out_dir, got none.'
-        load_pipeline = self._build_default_pipeline()
-        for i, result in enumerate(results):
-            data_info = self.data_infos[i]
-            pts_path = data_info['pts_path']
-            file_name = osp.split(pts_path)[-1].split('.')[0]
-            points, gt_instance_mask, gt_sem_mask = self._extract_data(
-                i, load_pipeline, ['points', 'pts_instance_mask', 'pts_semantic_mask'], load_annos=True)
-            points = points.numpy()
-            gt_inst_mask_final = np.zeros_like(gt_instance_mask)
-            for cls_idx in self.VALID_CLASS_IDS:
-                mask = gt_sem_mask == cls_idx
-                gt_inst_mask_final += mask.numpy()
-            gt_instance_mask[gt_inst_mask_final == 0] = -1
-
-            pred_instance_masks = result['instance_mask']
-            pred_instance_scores = result['instance_score']
-
-            pred_instance_masks_sort = pred_instance_masks[pred_instance_scores.argsort()]
-            pred_instance_masks_label = pred_instance_masks_sort[0].long() - 1
-            for i in range(1, pred_instance_masks_sort.shape[0]):
-                pred_instance_masks_label[pred_instance_masks_sort[i].bool()] = i
-
-            palette = np.random.random((max(max(pred_instance_masks_label) + 2, max(gt_instance_mask) + 2), 3)) * 255
-            palette[-1] = 255
-
-            show_seg_result(points, gt_instance_mask,
-                            pred_instance_masks_label, out_dir, file_name,
-                            palette)
 

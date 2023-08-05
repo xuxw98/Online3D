@@ -1,6 +1,6 @@
 voxel_size = .02
 padding = .08
-n_points = 50000
+n_points = 20000
 
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',
@@ -10,11 +10,17 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
 img_norm_cfg = dict(
     mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
 
+evaluator_mode = 'slice_num_constant'
+num_slice = 1
+len_slice = 5
+
 model = dict(
-    type='TD3DInstanceSegmentorFF',
+    type='TD3DInstanceSegmentor_Online',
     voxel_size=voxel_size,
-    img_backbone=dict(type='Resnet_FPN_Backbone',),
-    backbone=dict(type='MinkFFResNetNN', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
+    evaluator_mode=evaluator_mode,
+    num_slice=num_slice,
+    len_slice=len_slice,
+    backbone=dict(type='MinkResNetNN', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
     neck=dict(
         type='NgfcTinySegmentationNeck',
         in_channels=(64, 128, 256, 512),
@@ -75,52 +81,32 @@ load_from = None
 resume_from = None
 workflow = [('train', 1)]
 
-dataset_type = 'ScanNetSVInstanceSegV2Dataset'
-data_root = './data/scannet-sv1/'
+dataset_type = 'ScanNetMVInstanceSegV2Dataset'
+data_root = './data/scannet-mv1/'
 
 train_pipeline = [
     dict(
-        type='LoadImageFromFile'),
-    dict(
-        type='LoadPointsFromFile',
+        type='LoadAdjacentPointsFromFiles',
         coord_type='DEPTH',
+        num_frames=8,
         shift_height=False,
         use_color=True,
-        load_dim=6,
+        use_amodal_points=True,
+        load_dim=7,
         use_dim=[0, 1, 2, 3, 4, 5]),
     dict(
-        type='LoadAnnotations3D',
-        with_mask_3d=True,
-        with_seg_3d=True),
+        type='LoadAnnotations3D'),
+    # maybe only one img scale, need running check
     dict(
-        type='Resize',
-        img_scale=[(1333, 600)],
-        # img_scale=[(1333, 480), (1333, 504), (1333, 528), (1333, 552),
-        #           (1333, 576), (1333, 600)],
-        multiscale_mode='value',
-        keep_ratio=True),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='Pad', size_divisor=32),
-    #dict(
-    #    type='GlobalAlignment', rotation_axis=2),
-    dict(
-        type='PointSample', num_points=n_points),
-    dict(
-        type='PointSegClassMappingV2',
-        valid_cat_ids=(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28,
-                       33, 34, 36, 39),
+        type='MultiViewsPointSegClassMapping',
+        valid_cat_ids=(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34,
+                       36, 39),
         max_cat_id=40),
     dict(
         type='RandomFlip3D',
         sync_2d=False,
         flip_ratio_bev_horizontal=0.5,
         flip_ratio_bev_vertical=0.5),
-    #dict(
-    #    type='Elastic'),
-    #dict(
-    #    type='MiniMosaic',
-    #    remaining_points_thr=0.3,
-    #    n_src_points=n_points),
     dict(
         type='GlobalRotScaleTransV2',
         rot_range_z=[-3.14, 3.14],
@@ -129,51 +115,49 @@ train_pipeline = [
         translation_std=[.1, .1, .1],
         shift_height=False),
     dict(
-        type='BboxRecalculation'),
+        type='MultiViewsBboxRecalculation'),
     dict(type='NormalizePointsColor', color_mean=None),
-    dict(type='DefaultFormatBundle3D', class_names=class_names),
-    dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d',
-                                 'pts_semantic_mask', 'pts_instance_mask', 'img'])
+    dict(type='MultiViewFormatBundle3D', class_names=class_names),
+    dict(type='Collect3D', keys=['points', 'modal_box','modal_label', 'amodal_box',
+                                 'amodal_label', 'pts_semantic_mask', 'pts_instance_mask'])
 ]
 test_pipeline = [
     dict(
-        type='LoadImageFromFile'),
-    dict(
-        type='LoadPointsFromFile',
+        type='LoadAdjacentPointsFromFiles',
         coord_type='DEPTH',
+        num_frames=-1,
         shift_height=False,
         use_color=True,
-        load_dim=6,
-        use_dim=[0, 1, 2, 3, 4, 5]),
+        use_sample=False,
+        load_dim=7,
+        use_dim=[0, 1, 2, 3, 4, 5],
+        ),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 600),
         pts_scale_ratio=1,
         flip=False,
         transforms=[
-            dict(type='Resize', multiscale_mode='value', keep_ratio=True),
-            dict(type='Normalize', **img_norm_cfg),
-            dict(type='Pad', size_divisor=32),
             dict(type='NormalizePointsColor', color_mean=None),
             dict(
-                type='DefaultFormatBundle3D',
+                type='MultiViewFormatBundle3D',
                 class_names=class_names,
                 with_label=False),
-            dict(type='Collect3D', keys=['points','img'])
+            dict(type='Collect3D', keys=['points'])
         ])
 ]
 
 data = dict(
-    # 12 10
-    samples_per_gpu=12,
+    # 6 10
+    samples_per_gpu=6,
     workers_per_gpu=10,
     train=dict(
         type='RepeatDataset',
-        times=5,
+        times=10,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
-            ann_file=data_root + 'scannet_sv_infos_train.pkl',
+            ann_file=data_root + 'scannet_mv_infos_train.pkl',
             pipeline=train_pipeline,
             filter_empty_gt=True,
             classes=class_names,
@@ -181,19 +165,25 @@ data = dict(
     val=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'scannet_sv_infos_val.pkl',
+        ann_file=data_root + 'scannet_mv_infos_val.pkl',
         pipeline=test_pipeline,
         filter_empty_gt=False,
         classes=class_names,
         test_mode=True,
-        box_type_3d='Depth'),
+        box_type_3d='Depth',
+        evaluator_mode=evaluator_mode,
+        num_slice=num_slice,
+        len_slice=len_slice),
     test=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=data_root + 'scannet_sv_infos_val.pkl',
+        ann_file=data_root + 'scannet_mv_infos_val.pkl',
         pipeline=test_pipeline,
         filter_empty_gt=False,
         classes=class_names,
         test_mode=True,
-        box_type_3d='Depth')
+        box_type_3d='Depth',
+        evaluator_mode=evaluator_mode,
+        num_slice=num_slice,
+        len_slice=len_slice)
 )
