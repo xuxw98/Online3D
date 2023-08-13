@@ -538,7 +538,7 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
                 points = points_all[j].numpy() if j==0 else np.concatenate([points, points_all[j].numpy()], axis = 0)
                 points_res.append(points)
                 gt_instance_mask = gt_instance_mask_all[j] if j==0 else np.concatenate([gt_instance_mask, gt_instance_mask_all[j]], axis=0)
-                gt_sem_mask = gt_sem_mask_all[j] if j===0 else np.concatenate([gt_sem_mask, gt_sem_mask_all[j]], axis=0)
+                gt_sem_mask = gt_sem_mask_all[j] if j==0 else np.concatenate([gt_sem_mask, gt_sem_mask_all[j]], axis=0)
                 gt_inst_mask_final = np.zeros_like(gt_instance_mask)
                 for cls_idx in self.VALID_CLASS_IDS:
                     mask = gt_sem_mask[j] == cls_idx

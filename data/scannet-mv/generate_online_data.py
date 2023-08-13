@@ -526,8 +526,8 @@ if __name__ == '__main__':
                 #pdb.set_trace()
                 modal_bboxes, amodal_bboxes, amodal_box_mask = match_box([modal_bboxes, modal_instances], [scene_bboxes, bbox_instance_labels])
             else:
-                modal_bboxes_new = np.empty([0,8])
-                amodal_bboxes_new = np.empty([0,8])
+                modal_bboxes = np.empty([0,8])
+                amodal_bboxes = np.empty([0,8])
                 amodal_box_mask = np.zeros((scene_bboxes.shape[0]))
 
             print(i*20)
@@ -539,9 +539,6 @@ if __name__ == '__main__':
             if modal_bboxes.shape[0] > 0 and scene_bboxes.shape[0] > 0:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), modal_bboxes)
                 np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), amodal_box_mask)
-            elif scene_bboxes.shape[0] == 0:
-                np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), np.zeros((1,8)))
-                np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.ones((1)))
             else:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), np.empty([0,8]))
                 np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.zeros((scene_bboxes.shape[0])))

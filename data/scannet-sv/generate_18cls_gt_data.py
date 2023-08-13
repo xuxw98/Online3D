@@ -109,7 +109,7 @@ def get_color_label(xyz, intrinsic_image, rgb, ins, label):
     uv[:, 1] = np.clip(uv[:, 1], 0, height-1)
 
     uv_ind = uv[:, 1]*width + uv[:, 0]
-    
+    uv_ind = np.minimum(uv_ind, np.ones_like(uv_ind)*(label.reshape(-1).shape[0]-1))
     pc_label = np.take(label.reshape(-1), uv_ind)
     pc_ins = np.take(ins.reshape(-1), uv_ind)
     
@@ -201,6 +201,10 @@ def match_box(modal_data, scene_data):
 
 
 def get_3d_bbox(xyzrgb):
+    if xyzrgb is None:
+        return np.empty([0,8]), 0
+    if xyzrgb.shape[0] == 0:
+        return np.empty([0,8]), 0
     instance = xyzrgb[:,-1].copy()
     label = xyzrgb[:,-2].copy()
     xyz = xyzrgb[:,:3].copy()
@@ -221,7 +225,9 @@ def get_3d_bbox(xyzrgb):
             :, :-1
         ]
     else:
+        # pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
         pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
+        
 
     points = torch.tensor(xyz)
     points_for_max = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
@@ -238,13 +244,13 @@ def get_3d_bbox(xyzrgb):
 
     scene_bboxes = bboxes
     scene_instances = torch.tensor(instance_unique)
-    scene_labels = (instance_unique//1000)
+    scene_labels = np.zeros(scene_instances.shape)
 
-    OBJ_CLASS_IDS = np.array([3,4,5,6,7,8,9,10,11,12,14,16,24,28,33,34,36,39])
-    mask = np.in1d(scene_labels, OBJ_CLASS_IDS)
-    scene_bboxes = scene_bboxes[mask,:]
-    scene_labels = scene_labels[mask]
-    scene_instances = scene_instances[mask]
+    # OBJ_CLASS_IDS = np.array([3,4,5,6,7,8,9,10,11,12,14,16,24,28,33,34,36,39])
+    # mask = np.in1d(scene_labels, OBJ_CLASS_IDS)
+    # scene_bboxes = scene_bboxes[mask,:]
+    # scene_labels = scene_labels[mask]
+    # scene_instances = scene_instances[mask]
 
 
     if scene_bboxes.shape[0] > 0:
@@ -253,6 +259,31 @@ def get_3d_bbox(xyzrgb):
         bbox_3d=np.empty([0,8])
         
     return bbox_3d, scene_instances
+
+
+        
+def match_box(modal_data, scene_data):
+    # model bboxes Mx8
+    # scene bboxes Mx8
+    [modal_bboxes, modal_instances] = modal_data 
+    [scene_bboxes, scene_instances] = scene_data
+    if modal_bboxes.shape[0] == 0:
+        return np.empty([0,8])
+
+    modal_bboxes_new = []
+    for i in range(scene_instances.shape[0]):
+        for j in range(modal_instances.shape[0]):
+            if modal_instances[j]==scene_instances[i]:
+                modal_bboxes[j,-1] = scene_bboxes[i,-1]
+                modal_bboxes_new.append(modal_bboxes[j,:].reshape(1,-1))
+    
+    if len(modal_bboxes_new) == 0:
+        modal_bboxes_new = np.empty([0,8])
+        return modal_bboxes_new
+    
+    modal_bboxes_new = np.concatenate(modal_bboxes_new, axis=0)
+    return modal_bboxes_new
+
 
 
 
@@ -323,11 +354,9 @@ def get_3d_bbox_new(xyzrgb):
             #     # if cluster_ind.shape[0] / cur_tmp_xyz.shape[0] < 0.1 or cluster_ind.shape[0] <= 100:
             #     #     continue
                 
-            # # pdb.set_trace()
             # if clusters[np.argmax(max_mask)].shape[0] > 100 and clusters[np.argmax(max_mask)].shape[0] / cur_tmp_xyz.shape[0] > 0.1:
             #     cur_tmp_xyz = cur_tmp_xyz[clusters[np.argmax(max_mask)],:]
             # # cur_tmp_xyz = cur_tmp_xyz[cluster_ind,:]
-            # # pdb.set_trace()
             # # if name == 'scene0000_00_000900' and ins == 4:
             # #     save_path =  os.path.join('/home/ubuntu/xxw/SmallDet/mmdetection3d/dataset/OVD_sv_real_gt/OVD_sv_real_gt_train', "%s_pc_after_%s.obj"%(name,ins))
             # #     _write_obj(cur_tmp_xyz,  save_path)
@@ -347,7 +376,6 @@ def get_3d_bbox_new(xyzrgb):
     if len(bboxes) != 0:
         bboxes = torch.stack(bboxes, dim=0)
         # instances = torch.arange(bboxes.shape[0])
-        #pdb.set_trace()
         instances = instances[instance_valid]
         scene_bboxes = bboxes
         scene_instances = torch.tensor(instances)
@@ -367,57 +395,6 @@ def get_3d_bbox_new(xyzrgb):
         bbox_3d=np.empty([0,8])
         
     return bbox_3d, scene_instances
-
-def merge_cur_scan(path_dict, rgb_map_list, depth_map_list, instance_map_list, label_map_list, poses, intrinsic_depth, intrinsic_image):
-    DATA_PATH = path_dict["DATA_PATH"]
-    TARGET_DIR = path_dict["TARGET_DIR"]
-    RGB_PATH = path_dict["RGB_PATH"]
-    DEPTH_PATH = path_dict["DEPTH_PATH"]
-    INSTANCE_PATH = path_dict["INSTANCE_PATH"]
-    LABEL_PATH = path_dict["LABEL_PATH"]
-    POSE_PATH = path_dict["POSE_PATH"]
-    scan_path = path_dict["scan_path"]
-
-    xyz_global = []
-    for rgb_map_name, depth_map_name, instance_map_name, label_map_name, pose in zip(rgb_map_list,depth_map_list,instance_map_list,label_map_list,poses):
-        
-        instance_map = cv2.imread(os.path.join(scan_path,INSTANCE_PATH,instance_map_name),-1)
-        label_map = cv2.imread(os.path.join(scan_path,LABEL_PATH,label_map_name),-1)
-        depth_map = cv2.imread(os.path.join(scan_path,DEPTH_PATH,label_map_name),-1)
-        color_map = cv2.imread(os.path.join(scan_path,RGB_PATH,rgb_map_name))
-        color_map = cv2.cvtColor(color_map,cv2.COLOR_BGR2RGB)
-        file_name = rgb_map_name.split(".")[0]
-
-        # convert depth map to point cloud
-        height, width = depth_map.shape    
-        w_ind = np.arange(width)
-        h_ind = np.arange(height)
-
-        ww_ind, hh_ind = np.meshgrid(w_ind, h_ind)
-        ww_ind = ww_ind.reshape(-1)
-        hh_ind = hh_ind.reshape(-1)
-        depth_map = depth_map.reshape(-1)
-
-        valid = np.where(depth_map > 0.1)[0]
-        ww_ind = ww_ind[valid]
-        hh_ind = hh_ind[valid]
-        depth_map = depth_map[valid]
-
-        xyz, xyz_local = convert_from_uvd(ww_ind, hh_ind, depth_map, intrinsic_depth, pose)
-        rgb, label, ins = get_color_label(xyz_local, intrinsic_image, color_map, instance_map, label_map)
-        xyzrgb = np.concatenate([xyz, rgb, label, ins], axis=1)
-        step_interval = max((1, int(xyzrgb.shape[0]/10000)))
-        xyzrgb = xyzrgb[0:xyzrgb.shape[0]:step_interval,:]
-        xyz_global.append(xyzrgb)
-        
-    xyz_global = np.concatenate(xyz_global, axis=0)
-    
-    #print(xyz_global.shape)
-    #np.savetxt("xyz_global.txt", xyz_global, fmt="%.3f")
-
-    return xyz_global
-
-
 
 def export_one_scan(scan_name):    
     mesh_file = os.path.join('3D/scans', scan_name, scan_name + '_vh_clean_2.ply')
@@ -450,7 +427,6 @@ def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
     semantic_new = []
     instance_new = []
     xyz_new = []
-    mask_all = []
 
     for i in range(bboxes.shape[0]):
         instance_target = bbox_instance_labels[i]
@@ -462,33 +438,36 @@ def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
         z_min = bboxes[i,2] - bboxes[i,5]/2
         max_range = np.array([x_max, y_max, z_max])
         min_range = np.array([x_min, y_min, z_min])
-        # mask_single = np.in1d(instance, instance_target)
-        # xyz_single = xyz[mask_single,:]
-        # semantic_single = semantic[mask_single]
-        # instance_single = instance[mask_single]
-        margin_positive = xyz-min_range
-        margin_negative = xyz-max_range
+        mask_single = np.in1d(instance, instance_target)
+        xyz_single = xyz[mask_single,:]
+        semantic_single = semantic[mask_single]
+        instance_single = instance[mask_single]
+        margin_positive = xyz_single-min_range
+        margin_negative = xyz_single-max_range
         in_criterion = margin_positive * margin_negative
         zero = np.zeros(in_criterion.shape)
         one = np.ones(in_criterion.shape)
         in_criterion = np.where(in_criterion<=0,one,zero)
         mask = in_criterion[:,0]*in_criterion[:,1]*in_criterion[:,2]
         mask = mask.astype(np.bool_)
-        mask_all.append(mask)
+        xyz_single = xyz_single[mask,:]
+        semantic_single = semantic_single[mask]
+        instance_single = instance_single[mask]
+        if xyz_single.shape[0] == 0:
+            continue
+        else:
+            xyz_new.append(xyz_single)
+            semantic_new.append(semantic_single)
+            instance_new.append(instance_single) 
 
-    if len(mask_all) == 0:
-        xyz_all = np.concatenate([xyz, semantic.reshape(-1,1), instance.reshape(-1,1)], axis=1)
-    else:
-        mask = np.zeros(xyz.shape[0])
-        for i in range(len(mask_all)):
-            mask = np.logical_or(mask, mask_all[i])
-        xyz_new = xyz[mask]
-        semantic_new = semantic[mask]
-        instance_new = instance[mask]
-        if xyz_new.shape[0] == 0:
-            return np.empty([0,5])
-        xyz_all = np.concatenate([xyz_new,semantic_new.reshape(-1,1), instance_new.reshape(-1,1)], axis=1)
-        return xyz_all
+    if len(xyz_new) == 0:
+        return np.empty([0,5])
+    xyz_new = np.concatenate(xyz_new, axis=0)
+    semantic_new = np.concatenate(semantic_new, axis=0)
+    instance_new = np.concatenate(instance_new, axis=0)
+
+    xyz_all = np.concatenate([xyz_new,semantic_new.reshape(-1,1), instance_new.reshape(-1,1)], axis=1)
+    return xyz_all
 
 
 
@@ -499,16 +478,17 @@ def process_cur_scan(cur_scan):
     scan_num = cur_scan["scan_num"]
 
     DATA_PATH = path_dict["DATA_PATH"]
+    INS_DATA_PATH = path_dict["INS_DATA_PATH"]
     TARGET_DIR = path_dict["TARGET_DIR"]
     AXIS_ALIGN_MATRIX_PATH = path_dict["AXIS_ALIGN_MATRIX_PATH"]
     RGB_PATH = path_dict["RGB_PATH"]
     DEPTH_PATH = path_dict["DEPTH_PATH"]
-    INSTANCE_PATH = path_dict["INSTANCE_PATH"]
     LABEL_PATH = path_dict["LABEL_PATH"]
     POSE_PATH = path_dict["POSE_PATH"]
 
     scan_name = scan_name.strip("\n")
     scan_path = os.path.join(DATA_PATH,scan_name)
+    ins_data_path = os.path.join(INS_DATA_PATH,scan_name)
     path_dict["scan_path"] = scan_path
 
 
@@ -543,7 +523,11 @@ def process_cur_scan(cur_scan):
     POSE_txt_list = sorted(os.listdir(os.path.join(scan_path,POSE_PATH)))
     rgb_map_list = sorted(os.listdir(os.path.join(scan_path,RGB_PATH)))
     depth_map_list = sorted(os.listdir(os.path.join(scan_path,DEPTH_PATH)))
-    instance_map_list = sorted(os.listdir(os.path.join(scan_path,INSTANCE_PATH)))
+    instance_map_list = []
+    for depth_map_name in depth_map_list:
+        frame_num = int(depth_map_name[-10:-4])
+        instance_map_list.append(os.path.join(INS_DATA_PATH,scan_name,'instance',"%s.png"%(frame_num)))
+    #instance_map_list = sorted(os.listdir(os.path.join(scan_path,INS_DATA_PATH)))
     label_map_list = sorted(os.listdir(os.path.join(scan_path,LABEL_PATH)))
 
     poses = [np.dot(axis_align_matrix ,load_matrix_from_txt(os.path.join(scan_path,POSE_PATH, i))) for i in POSE_txt_list]
@@ -556,7 +540,8 @@ def process_cur_scan(cur_scan):
         label_map_name,\
         pose in zip(rgb_map_list,depth_map_list,instance_map_list,label_map_list,poses):
 
-        instance_map = cv2.imread(os.path.join(scan_path,INSTANCE_PATH,instance_map_name),-1)
+        instance_map = cv2.imread(instance_map_name,-1)
+        instance_map = cv2.resize(instance_map, (1296,968), interpolation=cv2.INTER_NEAREST)
         label_map = cv2.imread(os.path.join(scan_path,LABEL_PATH,label_map_name),-1)
         depth_map = cv2.imread(os.path.join(scan_path,DEPTH_PATH,label_map_name),-1)
         color_map = cv2.imread(os.path.join(scan_path,RGB_PATH,rgb_map_name))
@@ -593,9 +578,11 @@ def process_cur_scan(cur_scan):
         xyz_for_bbox = select_points_in_bbox(xyzrgb, scene_bboxes, bbox_instance_labels)
         
         modal_bboxes, modal_instances = get_3d_bbox(xyz_for_bbox)
+        modal_bboxes = match_box([modal_bboxes, modal_instances], [scene_bboxes, bbox_instance_labels])
 
         # modal_bboxes, modal_instances = get_3d_bbox_new(xyz_for_bbox)
         #print(bbox_3d.shape)
+        #pdb.set_trace()
 
         if modal_bboxes.shape[0] > 0:       
             # remember to keep it   
@@ -665,11 +652,11 @@ def process_cur_scan(cur_scan):
 
 def make_split(path_dict, split="train"):
     DATA_PATH = path_dict["DATA_PATH"]
+    INS_DATA_PATH = path_dict["INS_DATA_PATH"]
     TARGET_DIR_PREFIX = path_dict["TARGET_DIR_PREFIX"]
     AXIS_ALIGN_MATRIX_PATH = path_dict["AXIS_ALIGN_MATRIX_PATH"]
     RGB_PATH = path_dict["RGB_PATH"]
     DEPTH_PATH = path_dict["DEPTH_PATH"]
-    INSTANCE_PATH = path_dict["INSTANCE_PATH"]
     LABEL_PATH = path_dict["LABEL_PATH"]
     POSE_PATH = path_dict["POSE_PATH"]
 
@@ -704,21 +691,21 @@ def make_split(path_dict, split="train"):
 
 
 def main():
-    DATA_PATH = "./scannet_frames_25k" # Replace it with the path to scannet_frames_25k
-    TARGET_DIR_PREFIX = "./scannet_sv_18cls" # Replace it with the path to output path
-    AXIS_ALIGN_MATRIX_PATH = "./scans" # Replace it with the path to axis_align_matrix path
+    DATA_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/scannet_frames_25k" # Replace it with the path to scannet_frames_25k
+    TARGET_DIR_PREFIX = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/scannet_sv_18cls" # Replace it with the path to output path
+    INS_DATA_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/2D" # Replace it with the path to 2D
+    AXIS_ALIGN_MATRIX_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/scans" # Replace it with the path to axis_align_matrix path
     RGB_PATH = "./color"
     DEPTH_PATH = "./depth"
-    INSTANCE_PATH = "./instance"
     LABEL_PATH = "./label"
     POSE_PATH = "./pose"
 
     path_dict = {"DATA_PATH": DATA_PATH,
                 "TARGET_DIR_PREFIX": TARGET_DIR_PREFIX,
+                "INS_DATA_PATH": INS_DATA_PATH,
                 "AXIS_ALIGN_MATRIX_PATH": AXIS_ALIGN_MATRIX_PATH,
                 "RGB_PATH": RGB_PATH,
                 "DEPTH_PATH": DEPTH_PATH,
-                "INSTANCE_PATH": INSTANCE_PATH,
                 "LABEL_PATH": LABEL_PATH,
                 "POSE_PATH": POSE_PATH,        
                 }

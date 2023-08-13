@@ -321,9 +321,9 @@ class ScanNetMVData(object):
         ]
         self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
         self.label2cat = {self.cat2label[t]: t for t in self.cat2label}
-        self.cat_ids = np.arange(18)
-        # self.cat_ids = np.array(
-        #     [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+        # self.cat_ids = np.arange(18)
+        self.cat_ids = np.array(
+            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
         self.cat_ids2class = {
             nyu40id: i
             for i, nyu40id in enumerate(list(self.cat_ids))
@@ -478,7 +478,7 @@ class ScanNetMVData(object):
                     aligned_box = aligned_box_label[:, :6]  # k, 6
                     classes = aligned_box_label[:, -1]  # k
                     annotations['name'] = np.array([
-                        self.label2cat[self.cat_ids2class[classes[i]]]
+                        self.label2cat[self.cat_ids2class[max(classes[i],np.min(self.cat_ids))]]
                         for i in range(annotations['gt_num'])
                     ])
                     # default names are given to aligned bbox for compatibility
@@ -539,9 +539,9 @@ class ScanNetSVData(object):
             'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
             'garbagebin'
         ]
-        self.cat_ids = np.arange(18)
-        #self.cat_ids = np.array(
-        #    [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+        #self.cat_ids = np.arange(18)
+        self.cat_ids = np.array(
+            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
         self.cat2label = {cat: self.classes.index(cat) for cat in self.classes}
         self.label2cat = {self.cat2label[t]: t for t in self.cat2label}
         self.cat_ids2class = {
@@ -646,7 +646,7 @@ class ScanNetSVData(object):
 
             info['intrinsics'] = self.get_intrinsics(sample_idx)  
 
-            info['pts_path'] = osp.join(self.split_dir, f'{sample_idx}_pc.npy')
+            info['pts_path'] = osp.join('scannet_sv_18cls_%s'%self.split, f'{sample_idx}_pc.npy')
             
             # update with RGB image paths if exist
 
@@ -655,12 +655,10 @@ class ScanNetSVData(object):
             info['img_path'] = image_path
             info['pose'] = self.get_pose(sample_idx)
 
-            info['pts_instance_mask_path'] = osp.join(
-                self.split_dir,
-                f'{sample_idx}_ins_label.npy')
-            info['pts_semantic_mask_path'] = osp.join(
-                self.split_dir, 
-                f'{sample_idx}_sem_label.npy')
+            info['pts_instance_mask_path'] = osp.join('scannet_sv_18cls_%s'%self.split, f'{sample_idx}_ins_label.npy')
+
+            info['pts_semantic_mask_path'] = osp.join('scannet_sv_18cls_%s'%self.split, f'{sample_idx}_sem_label.npy')
+
 
             if has_label:
                 annotations = {}
