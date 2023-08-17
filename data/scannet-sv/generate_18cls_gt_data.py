@@ -157,49 +157,7 @@ def select_scene(bboxes, instances, max_box_labels):
         scene_labels = np.empty([1])
 
     return scene_bboxes, scene_instances, scene_labels
-    
-def match_box(modal_data, scene_data):
-    [modal_bboxes, modal_instances, modal_labels] = modal_data 
-    [scene_bboxes, scene_instances, scene_labels] = scene_data
-
-    modal_bboxes_new = []
-    modal_instances_new = []
-    modal_labels_new = []
-    amodal_box_mask = []
-    amodal_bboxes_new = []
-    amodal_labels_new = []
-    for i in range(scene_instances.shape[0]):
-        match_res = False
-        for j in range(modal_instances.shape[0]):
-            if modal_instances[j]==scene_instances[i]:
-                modal_bboxes_new.append(modal_bboxes[j,:].reshape(1,-1))
-                modal_instances_new.append(scene_instances[i])
-                modal_labels_new.append(scene_labels[i])
-                amodal_bboxes_new.append(scene_bboxes[i,:].reshape(1,-1))
-                amodal_labels_new.append(scene_labels[i])
-
-                match_res = True
-        amodal_box_mask.append(match_res)
-    
-    if len(modal_bboxes_new) == 0:
-        modal_bboxes_new = np.empty([0,7])
-        modal_instances_new = np.empty([1])
-        modal_labels_new = np.empty([1])
-        amodal_box_mask = np.zeros((scene_bboxes.shape[0]))
-        amodal_bboxes_new = np.empty([0,7])
-        amodal_labels_new = np.empty([1])
-        return modal_bboxes_new, modal_instances_new, modal_labels_new, amodal_box_mask, amodal_bboxes_new, amodal_labels_new
-    
-    modal_bboxes_new = np.concatenate(modal_bboxes_new, axis=0)
-    modal_instances_new = np.array(modal_instances_new)
-    modal_labels_new = np.array(modal_labels_new)
-    amodal_box_mask = np.array(amodal_box_mask)
-    amodal_bboxes_new = np.concatenate(amodal_bboxes_new, axis=0)
-    amodal_labels_new = np.array(amodal_labels_new)
-
-    return modal_bboxes_new, modal_instances_new, modal_labels_new, amodal_box_mask, amodal_bboxes_new, amodal_labels_new
-
-
+   
 def get_3d_bbox(xyzrgb):
     if xyzrgb is None:
         return np.empty([0,8]), 0
@@ -421,6 +379,7 @@ def export_one_scan(scan_name):
 
 def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
     instance = xyzrgb[:,-1].copy()
+    instance_new_xyzrgb = np.zeros_like(instance)
     semantic = xyzrgb[:,-2].copy()
     xyz = xyzrgb[:,:3].copy()
 
@@ -458,16 +417,24 @@ def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
         else:
             xyz_new.append(xyz_single)
             semantic_new.append(semantic_single)
-            instance_new.append(instance_single) 
+            instance_new.append(instance_single)
 
+        cnt = -1
+        for j in range(instance.shape[0]):
+            if mask_single[j]:
+                cnt = cnt+1
+                if mask[cnt]:
+                    instance_new_xyzrgb[j] = instance_target
+
+    xyzrgb_new = np.concatenate([xyzrgb[:,:6].copy(), semantic.reshape(-1,1), instance_new_xyzrgb.reshape(-1,1)], axis=1)
     if len(xyz_new) == 0:
-        return np.empty([0,5])
+        return np.empty([0,5]), xyzrgb_new
     xyz_new = np.concatenate(xyz_new, axis=0)
     semantic_new = np.concatenate(semantic_new, axis=0)
     instance_new = np.concatenate(instance_new, axis=0)
 
     xyz_all = np.concatenate([xyz_new,semantic_new.reshape(-1,1), instance_new.reshape(-1,1)], axis=1)
-    return xyz_all
+    return xyz_all, xyzrgb_new
 
 
 
@@ -476,6 +443,7 @@ def process_cur_scan(cur_scan):
     scan_name = cur_scan["scan_name"]
     path_dict = cur_scan["path_dict"]
     scan_num = cur_scan["scan_num"]
+    print(scan_name)
 
     DATA_PATH = path_dict["DATA_PATH"]
     INS_DATA_PATH = path_dict["INS_DATA_PATH"]
@@ -575,7 +543,7 @@ def process_cur_scan(cur_scan):
         #np.savetxt("xyzrgb_xiaobao_0000.txt", xyzrgb, fmt="%.3f")
         #exit()
         xyzrgb = random_sampling(xyzrgb, 50000)
-        xyz_for_bbox = select_points_in_bbox(xyzrgb, scene_bboxes, bbox_instance_labels)
+        xyz_for_bbox, xyzrgb = select_points_in_bbox(xyzrgb, scene_bboxes, bbox_instance_labels)
         
         modal_bboxes, modal_instances = get_3d_bbox(xyz_for_bbox)
         modal_bboxes = match_box([modal_bboxes, modal_instances], [scene_bboxes, bbox_instance_labels])
@@ -691,10 +659,10 @@ def make_split(path_dict, split="train"):
 
 
 def main():
-    DATA_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/scannet_frames_25k" # Replace it with the path to scannet_frames_25k
-    TARGET_DIR_PREFIX = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/scannet_sv_18cls" # Replace it with the path to output path
-    INS_DATA_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/2D" # Replace it with the path to 2D
-    AXIS_ALIGN_MATRIX_PATH = "/home/ubuntu/xxw/Online3D/Online3D/data/scannet-sv1/scans" # Replace it with the path to axis_align_matrix path
+    DATA_PATH = "./scannet_frames_25k" # Replace it with the path to scannet_frames_25k
+    TARGET_DIR_PREFIX = "./scannet_sv_18cls" # Replace it with the path to output path
+    INS_DATA_PATH = "./2D" # Replace it with the path to 2D
+    AXIS_ALIGN_MATRIX_PATH = "./scans" # Replace it with the path to axis_align_matrix path
     RGB_PATH = "./color"
     DEPTH_PATH = "./depth"
     LABEL_PATH = "./label"

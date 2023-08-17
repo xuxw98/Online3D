@@ -364,6 +364,7 @@ def export_one_scan(scan_name):
 def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
     semantic = xyzrgb[:,-1].copy()
     instance = xyzrgb[:,-2].copy()
+    instance_new_xyzrgb = np.zeros_like(instance)
     xyz = xyzrgb[:,:3].copy()
 
     semantic_new = []
@@ -402,14 +403,22 @@ def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
             semantic_new.append(semantic_single)
             instance_new.append(instance_single) 
 
+        cnt = -1
+        for j in range(instance.shape[0]):
+            if mask_single[j]:
+                cnt = cnt+1
+                if mask[cnt]:
+                    instance_new_xyzrgb[j] = instance_target
+
+    xyzrgb_new = np.concatenate([xyzrgb[:,:6].copy(), instance_new_xyzrgb.reshape(-1,1), semantic.reshape(-1,1)], axis=1)
     if len(xyz_new) == 0:
-        return np.empty([0,5])
+        return np.empty([0,5]), xyzrgb_new
     xyz_new = np.concatenate(xyz_new, axis=0)
     semantic_new = np.concatenate(semantic_new, axis=0)
     instance_new = np.concatenate(instance_new, axis=0)
 
     xyz_all = np.concatenate([xyz_new,instance_new.reshape(-1,1), semantic_new.reshape(-1,1)], axis=1)
-    return xyz_all
+    return xyz_all, xyzrgb_new
 
 
 if __name__ == '__main__':
@@ -480,6 +489,7 @@ if __name__ == '__main__':
         scene_bboxes, bbox_instance_labels = export_one_scan(scene_name)
         np.save('scene_amodal_box/%s.npy' % (scene_name), scene_bboxes)
 
+
         for i in range(num_frames):
             frame_id = i * 20
             f = os.path.join(path_2d, scene_name, 'color', str(frame_id)+'.jpg')
@@ -518,7 +528,7 @@ if __name__ == '__main__':
             # 7 -2 ins 
             # 8 -1 label
             xyzrgb = np.concatenate([pc[:,0:6],pc[:,7:9]], axis=1) 
-            xyz_for_bbox = select_points_in_bbox(xyzrgb, scene_bboxes, bbox_instance_labels)
+            xyz_for_bbox, xyzrgb = select_points_in_bbox(xyzrgb, scene_bboxes, bbox_instance_labels)
             # xyzrgb = remove_far_points(xyzrgb)
             if xyz_for_bbox.shape[0] != 0:
                 modal_bboxes, modal_instances = get_3d_bbox(xyz_for_bbox)
@@ -538,10 +548,13 @@ if __name__ == '__main__':
                 
             if modal_bboxes.shape[0] > 0 and scene_bboxes.shape[0] > 0:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), modal_bboxes)
-                np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), amodal_box_mask)
+                np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), amodal_box_mask.astype(np.bool_))
+            # elif scene_bboxes.shape[0] == 0:
+            #     np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), np.zeros((1,8)))
+            #     np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.ones((1)))
             else:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), np.empty([0,8]))
-                np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.zeros((scene_bboxes.shape[0])))
+                np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.zeros((scene_bboxes.shape[0])).astype(np.bool_))
 
 
             

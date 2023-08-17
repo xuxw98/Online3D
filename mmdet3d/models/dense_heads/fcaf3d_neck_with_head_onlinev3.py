@@ -791,7 +791,7 @@ class Fcaf3DNeckWithHead_OnlineV3(BaseModule):
             scores_[F.one_hot(idx, 18) == 0] = 0
             return scores_
 
-        delta = 0.025; sigma = -delta
+        delta = 0.03; sigma = -delta
         def change_now(score_now, score_pre):
             score_now_ = score_now.clone()
             assert score_pre[score_now<self.test_cfg.score_thr].sum() == 0

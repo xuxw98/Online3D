@@ -549,9 +549,16 @@ class ScanNetMVDataset(Custom3DDataset):
                'use_depth' in self.modality
         assert self.modality['use_camera'] or self.modality['use_depth']
         assert evaluator_mode in ['slice_len_constant','slice_num_constant']
-        self.evaluator_mode=evaluator_mode
+        self.evaluator_mode = evaluator_mode
         self.num_slice = num_slice
         self.len_slice = len_slice
+
+        self.cat_ids = np.array(
+            [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39])
+        self.cat_ids2class = {
+            nyu40id: i
+            for i, nyu40id in enumerate(list(self.cat_ids))
+        }
 
     def get_data_info(self, index):
         """Get data info according to the given index.
@@ -591,8 +598,7 @@ class ScanNetMVDataset(Custom3DDataset):
             for semantic_path in info['semantic_paths']:
                 semantic_info.append(
                     dict(filename=osp.join(self.data_root, semantic_path)))
-                
-            axis_align_matrix = self._get_axis_align_matrix(info)
+            
             # depth2img = []
             # intrinsic = np.array([[288.9353025,0,159.5,0],[0,288.9353025,119.5,0],[0,0,1,0],[0,0,0,1]])
             # for pose in info['poses']:
@@ -649,7 +655,16 @@ class ScanNetMVDataset(Custom3DDataset):
             origin=(0.5, 0.5, 0.5)).convert_to(self.box_mode_3d)
 
         axis_align_matrix = self._get_axis_align_matrix(info)
-        modal_boxes = info['annos']['modal_boxes']
+        modal_boxes = [boxes[:,:6] for boxes in info['annos']['modal_boxes']]
+        modal_labels = [boxes[:,-1] for boxes in info['annos']['modal_boxes']]
+        modal_boxes = [DepthInstance3DBoxes(
+            boxes,
+            box_dim=boxes.shape[-1],
+            with_yaw=False,
+            origin=(0.5, 0.5, 0.5)).convert_to(self.box_mode_3d) \
+            for boxes in modal_boxes]
+        modal_labels = [np.array([self.cat_ids2class[labels[i]] for i in range(labels.shape[0])]) for labels in modal_labels]
+
         amodal_box_masks = info['annos']['amodal_box_masks']
 
         anns_results = dict(
@@ -657,6 +672,7 @@ class ScanNetMVDataset(Custom3DDataset):
             gt_labels_3d=gt_labels_3d,
             axis_align_matrix=axis_align_matrix,
             modal_boxes=modal_boxes,
+            modal_labels=modal_labels,
             amodal_box_masks=amodal_box_masks)
         return anns_results
 

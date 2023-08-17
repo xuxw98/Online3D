@@ -322,20 +322,11 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
             dict: The result dict contains the data that is formatted with
                 default bundle.
         """
-        #print('BundleBefore',end=" ")
-        #print(type(results['imgs']))
-        #results['img'] = results['imgs']
-        #del results['imgs']
-        # Format 3D data
-
 
         if 'points' in results:
             assert isinstance(results['points'], BasePoints)
             channels = results['points'].tensor.shape[-1]
-            results['points'] = DC(results['points'].tensor.reshape(-1, 5000, channels))
-        
-        if 'amodal_box_mask' in results:
-            results['amodal_box_mask'] = DC(to_tensor(np.array(results['amodal_box_mask'])), stack=False)
+            results['points'] = DC(results['points'].tensor.reshape(-1, results['num_sample'], channels))
 
         for key in ['voxels', 'coors', 'voxel_centers', 'num_points']:
             if key not in results:
@@ -350,31 +341,26 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
                 depth2img.append(
                     intrinsic @ np.linalg.inv(pose))
             results['depth2img'] = depth2img
-
+        
+        if 'amodal_box_mask' in results:
+            results['amodal_box_mask'] = DC(to_tensor(np.array(results['amodal_box_mask'], dtype=bool)),
+                 cpu_only=True, stack=False)
         if 'modal_box' in results:
-            if isinstance(results['modal_box'], BaseInstance3DBoxes):
-                results['modal_box'] = DC(
-                    results['modal_box'], cpu_only=True)
-            else:
-                results['modal_box'] = DC(
-                    to_tensor(results['modal_box']))
+            results['modal_box'] = DC([res.tensor for res in results['modal_box']], cpu_only=True, stack=False)
         if 'modal_label' in results:
-            if isinstance(results['modal_label'], list):
-                results['modal_label'] = DC([to_tensor(res) for res in results['modal_label']])
-            else:
-                results['modal_label'] = DC(to_tensor(results['modal_label']))
-        if 'amodal_box' in results:
-            if isinstance(results['amodal_box'], BaseInstance3DBoxes):
-                results['amodal_box'] = DC(
-                    results['amodal_box'], cpu_only=True)
-            else:
-                results['amodal_box'] = DC(
-                    to_tensor(results['amodal_box']))
-        if 'amodal_label' in results:
-            if isinstance(results['amodal_label'], list):
-                results['amodal_label'] = DC([to_tensor(res) for res in results['amodal_label']])
-            else:
-                results['amodal_label'] = DC(to_tensor(results['amodal_label']))
+            results['modal_label'] = DC([to_tensor(res) for res in results['modal_label']], stack=False)
+        # if 'amodal_box' in results:
+        #     if isinstance(results['amodal_box'], BaseInstance3DBoxes):
+        #         results['amodal_box'] = DC(
+        #             results['amodal_box'], cpu_only=True, stack=False)
+        #     else:
+        #         results['amodal_box'] = DC(
+        #             to_tensor(results['amodal_box']), stack=False)
+        # if 'amodal_label' in results:
+        #     if isinstance(results['amodal_label'], list):
+        #         results['amodal_label'] = DC([to_tensor(res) for res in results['amodal_label']], stack=False)
+        #     else:
+        #         results['amodal_label'] = DC(to_tensor(results['amodal_label']), stack=False)
                 
 
         if self.with_gt:

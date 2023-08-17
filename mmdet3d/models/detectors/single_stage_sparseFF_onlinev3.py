@@ -70,14 +70,9 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
 
     def init_weights(self, pretrained=None):
         self.img_backbone.init_weights()
-        # self.img_neck.init_weights()
-        for param in self.img_backbone.parameters():
-            param.requires_grad = False
-        #for param in self.img_neck.parameters():
-        #    param.requires_grad = False
-        self.img_backbone.eval()
-        #self.img_neck.eval()
         self.backbone.init_weights()
+        if hasattr(self, 'memory'):
+            self.memory.init_weights()
         self.neck_with_head.init_weights()
              
     def extract_feat(self, points, img, img_metas):
@@ -141,7 +136,7 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
         projected_features = self.conv(projected_features)
         return projected_features + x
 
-    def forward_train(self, points, img, gt_bboxes_3d, gt_labels_3d, img_metas):
+    def forward_train(self, points, img, modal_box, modal_label, amodal_box_mask, gt_bboxes_3d, gt_labels_3d, img_metas):
         """Forward of training.
 
         Args:
@@ -154,6 +149,22 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
         Returns:
             dict: Centerness, bbox and classification loss values.
         """
+        # Process ground-truth
+        modal_box_for_each_frame = []
+        amodal_box_for_each_frame = []
+        label_for_each_frame = []
+        for i in range(img_metas[0]['num_frames']):
+            modal_boxes, modal_labels, amodal_boxes = [], [], []
+            for j in range(len(img_metas)):
+                modal_boxes.append(img_metas[j]['box_type_3d'](modal_box[j][i],
+                     box_dim=modal_box[j][i].shape[-1], with_yaw=False, origin=(.5, .5, .5)))
+                modal_labels.append(modal_label[j][i])
+                amodal_boxes.append(gt_bboxes_3d[j][amodal_box_mask[j][i]])
+                assert (modal_label[j][i] == gt_labels_3d[j][amodal_box_mask[j][i]]).all()
+            modal_box_for_each_frame.append(modal_boxes)
+            amodal_box_for_each_frame.append(amodal_boxes)
+            label_for_each_frame.append(modal_labels)
+
         losses = {}
         bbox_data_list = []
         depth2img = [img_meta['depth2img'] for img_meta in img_metas]

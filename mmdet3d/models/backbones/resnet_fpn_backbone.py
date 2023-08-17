@@ -2,7 +2,8 @@ import torch.nn as nn
 import torch
 from mmcv.runner import BaseModule, _load_checkpoint_with_prefix, load_state_dict
 from mmdet3d.models.builder import BACKBONES
-from .detectron2_basemodule import ShapeSpec, BasicStem, BasicBlock, BottleneckBlock, ResNet, LastLevelP6P7, FPN
+from .detectron2_basemodule import ShapeSpec, BasicStem, BasicBlock, BottleneckBlock, \
+     ResNet, LastLevelP6P7, LastLevelMaxPool, FPN
 
 @BACKBONES.register_module()
 class Resnet_FPN_Backbone(BaseModule):
@@ -94,13 +95,14 @@ class Resnet_FPN_Backbone(BaseModule):
         bottom_up = ResNet(stem, stages, out_features=out_features, freeze_at=freeze_at)
         in_features = ['res2','res3','res4','res5']
         out_channels = 256
-        in_channels_p6p7 = bottom_up.output_shape()["res5"].channels
+        # in_channels_p6p7 = bottom_up.output_shape()["res5"].channels
         self.backbone = FPN(
             bottom_up=bottom_up,
             in_features=in_features,
             out_channels=out_channels,
             norm='',
-            top_block=LastLevelP6P7(in_channels_p6p7, out_channels),
+            # top_block=LastLevelP6P7(in_channels_p6p7, out_channels),
+            top_block=LastLevelMaxPool(),
             fuse_type='sum',
         )
 
@@ -108,6 +110,10 @@ class Resnet_FPN_Backbone(BaseModule):
         ckpt_path = './mmdet3d/models/backbones/img_backbone.pth'
         ckpt = torch.load(ckpt_path)
         load_state_dict(self, ckpt['model'], strict=False)
+
+        for param in self.parameters():
+            param.requires_grad = False
+        self.eval()
 
     def forward(self, x):
         """Forward pass of ResNet.

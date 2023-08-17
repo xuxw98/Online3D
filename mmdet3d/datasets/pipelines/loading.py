@@ -603,7 +603,8 @@ class LoadAdjacentViewsFromFiles(object):
                  load_dim=7,
                  use_dim=[0, 1, 2],
                  num_sample=5000,
-                 use_sample = True,
+                 use_ins_sem=False,
+                 use_sample=True,
                  use_amodal_points=False,
                  interval=2,
                  shift_height=False,
@@ -611,6 +612,7 @@ class LoadAdjacentViewsFromFiles(object):
                  file_client_args=dict(backend='disk')):
         self.shift_height = shift_height
         self.use_color = use_color
+        self.use_ins_sem = use_ins_sem
         self.use_sample = use_sample
         self.use_amodal_points = use_amodal_points
         if isinstance(use_dim, int):
@@ -633,7 +635,7 @@ class LoadAdjacentViewsFromFiles(object):
         # points: num_frames, 5000, 3+C
         points = [np.load(info['filename']) for info in pts_filenames]
         points = [point[np.random.choice(point.shape[0],self.num_sample,replace=False)] for point in points]
-        points = np.stack(points, axis=0)
+        points = np.concatenate(points, axis=0)
         return points
     
     def _load_amodal_points_ins_sem(self, pts_filenames, instance_filenames, semantic_filenames, annos):
@@ -700,15 +702,13 @@ class LoadAdjacentViewsFromFiles(object):
         """
         pts_filenames = results['pts_info']
         img_filenames = results['img_info']
-        self.need_ins_sem = False
-        if 'instance_info' in results.keys():
-            self.need_ins_sem = True
-        if self.need_ins_sem:
+        if self.use_ins_sem:
             instance_filenames = results['instance_info']
             semantic_filenames = results['semantic_info']
         poses = results['poses']
 
         modal_boxes = results['ann_info']['modal_boxes']
+        modal_labels = results['ann_info']['modal_labels']
         amodal_box_masks = results['ann_info']['amodal_box_masks']
 
         if self.use_amodal_points:
@@ -716,25 +716,25 @@ class LoadAdjacentViewsFromFiles(object):
             results['num_amodal_points']  = amodal_points.shape[0]
 
         if self.num_frames > 0:
-            # begin_idx = np.random.randint(0, len(pts_filenames))
-            # for evaluate
-            begin_idx = 0
+            begin_idx = np.random.randint(0, len(pts_filenames))
             keep_view_idx = np.arange(begin_idx, begin_idx + self.num_frames * self.interval, self.interval)
             keep_view_idx %= len(pts_filenames)
             pts_filenames = [pts_filenames[idx] for idx in keep_view_idx]
             img_filenames = [img_filenames[idx] for idx in keep_view_idx]
-            if self.need_ins_sem:
+            if self.use_ins_sem:
                 instance_filenames = [instance_filenames[idx] for idx in keep_view_idx]
                 semantic_filenames = [semantic_filenames[idx] for idx in keep_view_idx]
             poses = [poses[idx] for idx in keep_view_idx]
             modal_boxes = [modal_boxes[idx] for idx in keep_view_idx]
+            modal_labels = [modal_labels[idx] for idx in keep_view_idx]
             amodal_box_masks = [amodal_box_masks[idx] for idx in keep_view_idx]
         results['modal_box'] = modal_boxes
+        results['modal_label'] = modal_labels
         results['amodal_box_mask'] = amodal_box_masks
         results['poses'] = poses
         # From num_framesx5000x(3+C) to -1x(3+C)
         # Use 'num_frames' to transform the point clouds back before fed to Detector.
-        if self.need_ins_sem:
+        if self.use_ins_sem:
             points, instance, semantic = self._load_points_ins_sem(pts_filenames, instance_filenames, semantic_filenames)
         else:
             points = self._load_points(pts_filenames)
@@ -744,10 +744,9 @@ class LoadAdjacentViewsFromFiles(object):
         # np.stack just add dimension
         if self.use_amodal_points:
             points = np.concatenate([amodal_points, points], axis=0)
-            if self.need_ins_sem:
+            if self.use_ins_sem:
                 instance = np.concatenate([amodal_instance, instance], axis=0)
                 semantic = np.concatenate([amodal_semantic, semantic], axis=0)
-
 
         points = points[:, self.use_dim]
         attribute_dims = None
@@ -775,7 +774,7 @@ class LoadAdjacentViewsFromFiles(object):
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         results['points'] = points
-        if self.need_ins_sem:
+        if self.use_ins_sem:
             results['pts_instance_mask'] = instance
             results['pts_semantic_mask'] = semantic
 
@@ -804,6 +803,7 @@ class LoadAdjacentViewsFromFiles(object):
         return repr_str
 
 
+# Need to be updated
 @PIPELINES.register_module()
 class LoadAdjacentPointsFromFiles(object):
     def __init__(self,

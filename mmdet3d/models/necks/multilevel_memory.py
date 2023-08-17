@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from mmdet3d.models.builder import NECKS
 from mmcv.runner import BaseModule
+from mmcv.cnn.utils.weight_init import constant_init
 import numpy as np
 import torch.nn as nn
 import os
@@ -65,6 +66,15 @@ class MultilevelMemory(BaseModule):
                 self.conv_convert.append(nn.Identity())
         self.relu = ME.MinkowskiReLU()
         self.accumulated_feats = None
+    
+    def init_weights(self, pretrained=None):
+        for m in self.modules():
+            if isinstance(m, ME.MinkowskiConvolution) or isinstance(m, ME.MinkowskiConvolutionTranspose):
+                constant_init(m.kernel, 0)
+
+            if isinstance(m, ME.MinkowskiBatchNorm):
+                constant_init(m.bn.weight, 1)
+                constant_init(m.bn.bias, 0)
     
     def reset(self):
         self.accumulated_feats = None

@@ -38,12 +38,6 @@ class SingleStageSparse3DDetectorFF(Base3DDetector):
 
     def init_weights(self, pretrained=None):
         self.img_backbone.init_weights()
-        # self.img_neck.init_weights()
-        for param in self.img_backbone.parameters():
-            param.requires_grad = False
-        #for param in self.img_neck.parameters():
-        #    param.requires_grad = False
-        self.img_backbone.eval()
         self.backbone.init_weights()
         self.neck_with_head.init_weights()
 

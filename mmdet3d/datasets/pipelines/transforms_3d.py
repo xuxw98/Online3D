@@ -122,6 +122,9 @@ class RandomFlip3D(RandomFlip):
         if 'bbox3d_fields' not in input_dict:
             input_dict['points'].flip(direction)
             return
+        if 'modal_box' in input_dict:
+            for i in range(len(input_dict['modal_box'])):
+                input_dict['modal_box'][i].flip(direction)
         if len(input_dict['bbox3d_fields']) == 0:  # test mode
             input_dict['bbox3d_fields'].append('empty_box3d')
             input_dict['empty_box3d'] = input_dict['box_type_3d'](
@@ -145,20 +148,6 @@ class RandomFlip3D(RandomFlip):
             # see more details and examples at
             # https://github.com/open-mmlab/mmdetection3d/pull/744
             input_dict['cam2img'][0][2] = w - input_dict['cam2img'][0][2]
-        # Flip poses
-        '''
-        if "poses" in input_dict:
-            flip_mat_pose = np.eye(4)
-            if direction == "horizontal":
-                flip_mat_pose[:,0] *= -1
-            if direction == "vertical":
-                flip_mat_pose[:,1] *= -1
-            poses = np.stack(input_dict['poses'], axis=0)
-            poses = np.transpose(poses, [1,2,0])
-            poses = np.matmul(flip_mat_pose, poses) # dot can only conduct matrix multiply when A and B are both 2-dim
-            poses = np.transpose(poses, [2,0,1])
-            input_dict['poses'] = [pose for pose in poses]
-        '''
 
     def __call__(self, input_dict):
         """Call function to flip points, values in the ``bbox3d_fields`` and
@@ -773,6 +762,10 @@ class GlobalRotScaleTrans(object):
         input_dict['pcd_trans'] = trans_factor
         for key in input_dict['bbox3d_fields']:
             input_dict[key].translate(trans_factor)
+        
+        if 'modal_box' in input_dict:
+            for i in range(len(input_dict['modal_box'])):
+                input_dict['modal_box'][i].translate(trans_factor)
 
     def _rot_bbox_points(self, input_dict):
         """Private function to rotate bounding boxes and points.
@@ -803,6 +796,10 @@ class GlobalRotScaleTrans(object):
                 input_dict['points'] = points
                 input_dict['pcd_rotation'] = rot_mat_T
                 input_dict['pcd_rotation_angle'] = noise_rotation
+        
+        if 'modal_box' in input_dict:
+            for i in range(len(input_dict['modal_box'])):
+                input_dict['modal_box'][i].rotate(noise_rotation)
 
     def _scale_bbox_points(self, input_dict):
         """Private function to scale bounding boxes and points.
@@ -825,6 +822,10 @@ class GlobalRotScaleTrans(object):
 
         for key in input_dict['bbox3d_fields']:
             input_dict[key].scale(scale)
+        
+        if 'modal_box' in input_dict:
+            for i in range(len(input_dict['modal_box'])):
+                input_dict['modal_box'][i].scale(scale)
 
     def _random_scale(self, input_dict):
         """Private function to randomly set the scale factor.
@@ -863,23 +864,6 @@ class GlobalRotScaleTrans(object):
 
         self._trans_bbox_points(input_dict)
 
-        '''
-        # Flip poses
-        if "poses" in input_dict:
-            rotate_mat_pose = np.eye(4)
-            rotate_mat_pose[:3, :3] = input_dict['pcd_rotation'].T
-            scale_mat_pose = np.eye(4)
-            scale_mat_pose[:3, :3] *= input_dict['pcd_scale_factor']
-            trans_mat_pose = np.eye(4)
-            trans_mat_pose[:3, 3] = input_dict['pcd_trans']
-            poses = np.stack(input_dict['poses'], axis=0)
-            poses = np.transpose(poses, [1,2,0])
-            poses = np.matmul(rotate_mat_pose, poses)
-            poses = np.matmul(scale_mat_pose, poses)
-            poses = np.matmul(trans_mat_pose, poses)
-            poses = np.transpose(poses, [2,0,1])
-            input_dict['poses'] = [pose for pose in poses]
-        '''
         input_dict['transformation_3d_flow'].extend(['R', 'S', 'T'])
         #print('GlobalRotScaleTransAfter',end=" ")
         #print(type(input_dict['imgs']))
