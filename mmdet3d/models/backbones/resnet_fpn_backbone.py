@@ -1,9 +1,10 @@
 import torch.nn as nn
 import torch
 from mmcv.runner import BaseModule, _load_checkpoint_with_prefix, load_state_dict
-from mmdet3d.models.builder import BACKBONES
+from mmdet3d.models.builder import BACKBONES, build_neck
 from .detectron2_basemodule import ShapeSpec, BasicStem, BasicBlock, BottleneckBlock, \
      ResNet, LastLevelP6P7, LastLevelMaxPool, FPN
+import pdb
 
 @BACKBONES.register_module()
 class Resnet_FPN_Backbone(BaseModule):
@@ -18,7 +19,7 @@ class Resnet_FPN_Backbone(BaseModule):
             Default: True.
     """
 
-    def __init__(self):
+    def __init__(self, img_memory=None):
         super(Resnet_FPN_Backbone, self).__init__()
         input_shape = ShapeSpec(channels=3)
         
@@ -105,15 +106,23 @@ class Resnet_FPN_Backbone(BaseModule):
             top_block=LastLevelMaxPool(),
             fuse_type='sum',
         )
+        # if img_memory is not None:
+        #     self.img_memory = build_neck(img_memory)
 
     def init_weights(self):
         ckpt_path = './mmdet3d/models/backbones/img_backbone.pth'
         ckpt = torch.load(ckpt_path)
         load_state_dict(self, ckpt['model'], strict=False)
+        # if hasattr(self, 'img_memory'):
+        #     self.img_memory.init_weights()
 
-        for param in self.parameters():
+        for param in self.backbone.parameters():
             param.requires_grad = False
-        self.eval()
+        self.backbone.eval()
+    
+    # def reset(self):
+    #     if hasattr(self, 'img_memory'):
+    #         self.img_memory.reset()
 
     def forward(self, x):
         """Forward pass of ResNet.
@@ -125,5 +134,7 @@ class Resnet_FPN_Backbone(BaseModule):
             list[ME.SparseTensor]: Output sparse tensors.
         """
         x = self.backbone(x)
+        # if hasattr(self, 'img_memory'):
+        #     x['p2'] = self.img_memory(x['p2'])
         return x
     

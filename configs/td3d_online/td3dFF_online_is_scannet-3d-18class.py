@@ -10,6 +10,8 @@ class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
 img_norm_cfg = dict(
     mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
 
+load_from = "work_dirs/td3d_svFF/latest.pth"
+
 evaluator_mode = 'slice_num_constant'
 num_slice = 1
 len_slice = 5
@@ -21,7 +23,9 @@ model = dict(
     num_slice=num_slice,
     len_slice=len_slice,
     img_backbone=dict(type='Resnet_FPN_Backbone',),
-    backbone=dict(type='MinkFFResNetNN', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
+    # img_memory=dict(type='ImgMemory',),
+    backbone=dict(type='MinkFFResNet', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
+    # memory=dict(type='MultilevelMemory', in_channels=[64, 64, 128, 256, 512], vmp_layer=(1,2,3,4)),
     neck=dict(
         type='NgfcTinySegmentationNeck',
         in_channels=(64, 128, 256, 512),
@@ -91,9 +95,9 @@ train_pipeline = [
         coord_type='DEPTH',
         num_frames=8,
         shift_height=False,
+        use_ins_sem=True,
         use_color=True,
         use_amodal_points=True,
-        load_dim=7,
         use_dim=[0, 1, 2, 3, 4, 5]),
     dict(
         type='LoadAnnotations3D'),
@@ -117,7 +121,7 @@ train_pipeline = [
     # dict(
     #     type='MultiViewsPointSample', num_points=n_points),
     dict(
-        type='MultiViewsPointSegClassMapping',
+        type='MultiViewsPointSegClassMappingV2',
         valid_cat_ids=(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34,
                        36, 39),
         max_cat_id=40),
@@ -137,11 +141,9 @@ train_pipeline = [
         type='MultiViewsBboxRecalculation'),
     dict(type='NormalizePointsColor', color_mean=None),
     dict(type='MultiViewFormatBundle3D', class_names=class_names),
-    #dict(type='Collect3D', keys=['points', 'modal_box','modal_label', 'amodal_box',
-    #                             'amodal_label', 'pts_semantic_mask', 'pts_instance_mask', 
-    #                             'gt_bboxes_3d','gt_labels_3d','img'])
-    dict(type='Collect3D', keys=['points', 'pts_semantic_mask', 'pts_instance_mask', 
-                                 'gt_bboxes_3d','gt_labels_3d','img'])
+    dict(type='Collect3D', keys=['points', 'modal_box','modal_label', 'amodal_box_mask',
+                                'pts_semantic_mask', 'pts_instance_mask', 
+                                'gt_bboxes_3d','gt_labels_3d','img'])
 ]
 test_pipeline = [
     dict(
@@ -149,9 +151,8 @@ test_pipeline = [
         coord_type='DEPTH',
         num_frames=-1,
         shift_height=False,
+        use_ins_sem=True,
         use_color=True,
-        use_sample=False,
-        load_dim=7,
         use_dim=[0, 1, 2, 3, 4, 5],
         ),
     dict(

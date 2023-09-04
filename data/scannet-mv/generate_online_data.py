@@ -409,6 +409,7 @@ def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
                 cnt = cnt+1
                 if mask[cnt]:
                     instance_new_xyzrgb[j] = instance_target
+                    semantic[j] = bboxes[i,-1]
 
     xyzrgb_new = np.concatenate([xyzrgb[:,:6].copy(), instance_new_xyzrgb.reshape(-1,1), semantic.reshape(-1,1)], axis=1)
     if len(xyz_new) == 0:
@@ -543,8 +544,8 @@ if __name__ == '__main__':
             print(i*20)
             print(modal_bboxes.shape)
             np.save('point/%s/%s.npy' % (scene_name, frame_id), pc[:,:7])
-            np.save('instance_mask/%s/%s.npy' % (scene_name, frame_id), pc[:,7])
-            np.save('semantic_mask/%s/%s.npy' % (scene_name, frame_id), pc[:,8])
+            np.save('instance_mask/%s/%s.npy' % (scene_name, frame_id), xyzrgb[:,-2])
+            np.save('semantic_mask/%s/%s.npy' % (scene_name, frame_id), xyzrgb[:,-1])
                 
             if modal_bboxes.shape[0] > 0 and scene_bboxes.shape[0] > 0:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), modal_bboxes)

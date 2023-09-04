@@ -55,6 +55,8 @@ def rename_gt(gt_semantic_masks, gt_instance_masks, valid_class_ids):
         unique = np.unique(instance_mask)
         assert len(unique) < 1000
         for i in unique:
+            if i==0:
+               semantic_mask[instance_mask == 0] = -1
             semantic_instance = semantic_mask[instance_mask == i]
             semantic_unique = np.unique(semantic_instance)
             assert len(semantic_unique) == 1

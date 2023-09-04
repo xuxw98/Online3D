@@ -942,6 +942,10 @@ class GlobalRotScaleTransV2(object):
         input_dict['pcd_trans'] = trans_factor
         for key in input_dict['bbox3d_fields']:
             input_dict[key].translate(trans_factor)
+    
+        if 'modal_box' in input_dict:
+            for i in range(len(input_dict['modal_box'])):
+                input_dict['modal_box'][i].translate(trans_factor)
 
     def _rot_bbox_points(self, input_dict):
         """Private function to rotate bounding boxes and points.
@@ -964,6 +968,10 @@ class GlobalRotScaleTransV2(object):
         input_dict['pcd_rotation'] = rot_mat_T_z @ rot_mat_T_x @ rot_mat_T_y
         input_dict['pcd_rotation_angle'] = noise_rotation_z
 
+        # if 'modal_box' in input_dict:
+        #     for i in range(len(input_dict['modal_box'])):
+        #         input_dict['modal_box'][i].rotate(noise_rotation)
+
     def _scale_bbox_points(self, input_dict):
         """Private function to scale bounding boxes and points.
 
@@ -985,6 +993,10 @@ class GlobalRotScaleTransV2(object):
 
         for key in input_dict['bbox3d_fields']:
             input_dict[key].scale(scale)
+
+        if 'modal_box' in input_dict:
+            for i in range(len(input_dict['modal_box'])):
+                input_dict['modal_box'][i].scale(scale) 
 
     def _random_scale(self, input_dict):
         """Private function to randomly set the scale factor.
@@ -2147,14 +2159,6 @@ class RandomShiftScale(object):
 
 @PIPELINES.register_module()
 class BboxRecalculation(object):
-
-    def calculate_box_label(self, pts_semantic_mask_expand):
-        pts_semantic_mask_expand = pts_semantic_mask_expand.transpose(1,0)
-        label_match_num = [torch.sum(pts_semantic_mask_expand == i, dim=1).unsqueeze(1) for i in range(torch.max(pts_semantic_mask_expand)+1)]
-        label_match_res = torch.cat(label_match_num, dim=1)
-        label_match_res = label_match_res.max(axis=1)[1]
-        return label_match_res
-
     def __call__(self, input_dict):
         pts_instance_mask = torch.tensor(input_dict['pts_instance_mask']).to(torch.int64)
         if torch.sum(pts_instance_mask == -1) != 0:
@@ -2174,54 +2178,25 @@ class BboxRecalculation(object):
         bboxes_sizes = bboxes_max - bboxes_min
         bboxes_centers = (bboxes_max + bboxes_min) / 2
         bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
+        if bboxes.shape[0] == 0:
+            input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5))
+            input_dict['gt_labels_3d'] = np.zeros(1).astype('int64')
+            return input_dict
         input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
-
-        # pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
-        # pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
-        # pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
-        # assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
-        # input_dict['gt_labels_3d'] = pts_semantic_mask_expand.max(axis=0)[0].numpy()
-
+        
         pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
         pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
         pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
-        max_box_labels = self.calculate_box_label(pts_semantic_mask_expand)
-        input_dict['gt_labels_3d'] = max_box_labels
-
+        assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
+        input_dict['gt_labels_3d'] = pts_semantic_mask_expand.max(axis=0)[0].numpy()
         return input_dict
-
 
 
 @PIPELINES.register_module()
 class MultiViewsBboxRecalculation(object):
-
-    def calculate_box_label(self, pts_semantic_mask_expand):
-        pts_semantic_mask_expand = pts_semantic_mask_expand.transpose(1,0)
-        label_match_num = [torch.sum(pts_semantic_mask_expand == i, dim=1).unsqueeze(1) for i in range(torch.max(pts_semantic_mask_expand)+1)]
-        label_match_res = torch.cat(label_match_num, dim=1)
-        label_match_res = label_match_res.max(axis=1)[1]
-        return label_match_res
-    
-    def select_scene(self, bboxes, instances, max_box_labels):
-        assert bboxes.shape[0] == instances.shape[0]
-        assert max_box_labels.shape[0] == instances.shape[0]
-        scene_bboxes = []
-        scene_instances = []
-        scene_labels = []
-        for i in range(max_box_labels.shape[0]):
-            if max_box_labels[i] != torch.max(max_box_labels):
-                scene_bboxes.append(bboxes[i,:].unsqueeze(0))
-                scene_instances.append(instances[i].unsqueeze(0))
-                scene_labels.append(max_box_labels[i].unsqueeze(0))
-        scene_bboxes = np.concatenate(scene_bboxes, axis=0)
-        scene_instances = np.concatenate(scene_instances, axis=0)
-        scene_labels = np.concatenate(scene_labels, axis=0)
-        return scene_bboxes, scene_instances, scene_labels
-
-        
     def match_box(self, modal_data, scene_data):
-        [modal_bboxes, modal_instances, modal_labels] = modal_data 
-        [scene_bboxes, scene_instances, scene_labels] = scene_data
+        modal_bboxes, modal_instances, modal_labels = modal_data 
+        scene_bboxes, scene_instances, scene_labels = scene_data
 
         modal_bboxes_new = []
         modal_instances_new = []
@@ -2238,17 +2213,15 @@ class MultiViewsBboxRecalculation(object):
                     modal_labels_new.append(scene_labels[i])
                     amodal_bboxes_new.append(scene_bboxes[i,:].reshape(1,-1))
                     amodal_labels_new.append(scene_labels[i])
-
                     match_res = True
             amodal_box_mask.append(match_res)
-        
+    
         modal_bboxes_new = np.concatenate(modal_bboxes_new, axis=0)
         modal_instances_new = np.array(modal_instances_new)
         modal_labels_new = np.array(modal_labels_new)
         amodal_box_mask = np.array(amodal_box_mask)
         amodal_bboxes_new = np.concatenate(amodal_bboxes_new, axis=0)
         amodal_labels_new = np.array(amodal_labels_new)
-
         return modal_bboxes_new, modal_instances_new, modal_labels_new, amodal_box_mask, amodal_bboxes_new, amodal_labels_new
 
     def __call__(self, input_dict):
@@ -2256,7 +2229,34 @@ class MultiViewsBboxRecalculation(object):
         dims = input_dict['points'].shape[-1]
         points = input_dict['points'].tensor
         pts_instance_mask = torch.tensor(input_dict['pts_instance_mask']).to(torch.int64)
+        # not continuous instance tag, but empty bboxes does not matter 
+        
+        # pts_instance_mask[pts_instance_mask == 0] = -1
+        if torch.all(pts_instance_mask==-1):
+            input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5))
+            input_dict['gt_labels_3d'] = np.zeros(1).astype('int64')
+            gt_modal_bboxes = []
+            gt_modal_labels = []
+            gt_amodal_box_mask = []
+            for i in range(input_dict['num_frames']):
+                gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5)))
+                gt_modal_labels.append(np.zeros(1).astype('int64'))
+                gt_amodal_box_mask.append(np.ones(scene_bboxes.shape[0]).astype(np.bool_))
+            input_dict['modal_box'] = gt_modal_bboxes
+            input_dict['modal_label'] = gt_modal_labels
+            input_dict['amodal_box_mask'] = gt_amodal_box_mask
 
+            points = input_dict['points']
+            points.tensor = points.tensor[input_dict['num_amodal_points']:,:]
+            pts_instance_mask = input_dict['pts_instance_mask'][input_dict['num_amodal_points']:]
+            pts_semantic_mask = input_dict['pts_semantic_mask'][input_dict['num_amodal_points']:]
+            input_dict['points'] = points
+            input_dict['pts_instance_mask'] = pts_instance_mask.reshape(input_dict['num_frames'], -1)
+            input_dict['pts_semantic_mask'] = pts_semantic_mask.reshape(input_dict['num_frames'], -1)
+
+            return input_dict
+
+        # pts_instance_mask[pts_instance_mask>=0] = pts_instance_mask[pts_instance_mask>0] - 1
         if torch.sum(pts_instance_mask == -1) != 0:
             # throw things you don't want
             pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
@@ -2265,7 +2265,6 @@ class MultiViewsBboxRecalculation(object):
             ]
         else:
             pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
-
         points = input_dict['points'][:, :3].tensor
         points_for_max = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
         points_for_min = points.unsqueeze(1).expand(points.shape[0], pts_instance_mask_one_hot.shape[1], points.shape[1]).clone()
@@ -2282,10 +2281,12 @@ class MultiViewsBboxRecalculation(object):
         pts_semantic_mask = torch.tensor(input_dict['pts_semantic_mask'])
         pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
         pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
+        assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
+        box_labels = pts_semantic_mask_expand.max(axis=0)[0].numpy()
         
-        max_box_labels = self.calculate_box_label(pts_semantic_mask_expand)
-        scene_bboxes, scene_instances, scene_labels = self.select_scene(bboxes, instances, max_box_labels) 
-        
+        scene_bboxes = bboxes
+        scene_labels = box_labels
+        scene_instances = instances
         input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(scene_bboxes, with_yaw=False, origin=(.5, .5, .5))
         input_dict['gt_labels_3d'] = scene_labels
 
@@ -2303,66 +2304,90 @@ class MultiViewsBboxRecalculation(object):
 
         gt_modal_bboxes = []
         gt_modal_labels = []
-        gt_amodal_bboxes = []
-        gt_amodal_labels = []
+        gt_amodal_box_mask = []
 
         for i in range(input_dict['num_frames']):
-            pts_instance_mask = pts_instance_mask_all[i,:]
-            instance_unique = np.array(list(set(pts_instance_mask)))
-            
-            instance_convert = {instance_unique[i]: i for i in range(instance_unique.shape[0])}
-            for j in range(pts_instance_mask.shape[0]):
-                pts_instance_mask[j] = instance_convert[pts_instance_mask[j]]
-            pts_instance_mask = torch.tensor(pts_instance_mask).to(torch.int64)
+            modal_box_for_each_frame = input_dict['modal_box'][i]
+            if modal_box_for_each_frame.tensor.shape[0] != 0:
+                pts_instance_mask = pts_instance_mask_all[i,:]
 
-            # np unique
+                # pts_instance_mask[pts_instance_mask == 0] = -1
+                # 0
+                if np.all(pts_instance_mask==-1):
+                    gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5)))
+                    gt_modal_labels.append(np.zeros(1).astype('int64'))
+                    gt_amodal_box_mask.append(np.zeros(scene_bboxes.shape[0]).astype(np.bool_))
+                    continue
 
-            if torch.sum(pts_instance_mask == -1) != 0:
-                pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
-                pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)[
-                    :, :-1
-                ]
+                minus_one = False
+                if np.any(pts_instance_mask==-1):
+                    minus_one = True
+
+                instance_unique = np.unique(pts_instance_mask)
+                instance_convert = {instance_unique[i]: i for i in range(instance_unique.shape[0])}
+                for j in range(pts_instance_mask.shape[0]):
+                    pts_instance_mask[j] = instance_convert[pts_instance_mask[j]]
+                pts_instance_mask = torch.tensor(pts_instance_mask).to(torch.int64)
+                
+                if minus_one:
+                    pts_instance_mask = pts_instance_mask - 1
+
+                # np unique
+
+                if torch.sum(pts_instance_mask == -1) != 0:
+                    pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
+                    pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)[
+                        :, :-1
+                    ]
+                else:
+                    pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
+
+                points_new = points[i,:, :3]
+                points_for_max = points_new.unsqueeze(1).expand(points_new.shape[0], pts_instance_mask_one_hot.shape[1], points_new.shape[1]).clone()
+                points_for_min = points_new.unsqueeze(1).expand(points_new.shape[0], pts_instance_mask_one_hot.shape[1], points_new.shape[1]).clone()
+                points_for_max[~pts_instance_mask_one_hot.bool()] = float('-inf')
+                points_for_min[~pts_instance_mask_one_hot.bool()] = float('inf')
+                bboxes_max = points_for_max.max(axis=0)[0]
+                bboxes_min = points_for_min.min(axis=0)[0]
+                bboxes_sizes = bboxes_max - bboxes_min
+                bboxes_centers = (bboxes_max + bboxes_min) / 2
+                bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
+                # only for amodal_box now
+                #input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+                #input_dict["box"][i] = input_dict["box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+                #input_dict["amodal_box"][i] = input_dict["amodal_box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
+
+                # new
+                pts_semantic_mask = torch.tensor(pts_semantic_mask_all[i,:])
+                pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
+                pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
+                assert pts_semantic_mask_expand.max(axis=0)[0].shape[0] != 0
+                box_labels = pts_semantic_mask_expand.max(axis=0)[0].numpy()
+
+                if instance_unique[0] == -1:
+                    instances = torch.tensor(instance_unique[1:])
+                else:
+                    instances = torch.tensor(instance_unique)
+                    
+                modal_bboxes = bboxes
+                modal_instances = instances
+                modal_labels = box_labels
+                                
+                modal_bboxes, modal_instances, modal_labels, amodal_box_mask, amodal_bboxes, amodal_labels = self.match_box([modal_bboxes, modal_instances, modal_labels], [scene_bboxes, scene_instances, scene_labels])
+                
+                gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(modal_bboxes, with_yaw=False, origin=(.5, .5, .5)))
+                gt_modal_labels.append(modal_labels)
+                gt_amodal_box_mask.append(amodal_box_mask)
+
             else:
-                pts_instance_mask_one_hot = torch.nn.functional.one_hot(pts_instance_mask)
-
-            points_new = points[i,:, :3]
-            points_for_max = points_new.unsqueeze(1).expand(points_new.shape[0], pts_instance_mask_one_hot.shape[1], points_new.shape[1]).clone()
-            points_for_min = points_new.unsqueeze(1).expand(points_new.shape[0], pts_instance_mask_one_hot.shape[1], points_new.shape[1]).clone()
-            points_for_max[~pts_instance_mask_one_hot.bool()] = float('-inf')
-            points_for_min[~pts_instance_mask_one_hot.bool()] = float('inf')
-            bboxes_max = points_for_max.max(axis=0)[0]
-            bboxes_min = points_for_min.min(axis=0)[0]
-            bboxes_sizes = bboxes_max - bboxes_min
-            bboxes_centers = (bboxes_max + bboxes_min) / 2
-            bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
-            # only for amodal_box now
-            #input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
-            #input_dict["box"][i] = input_dict["box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
-            #input_dict["amodal_box"][i] = input_dict["amodal_box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
-
-            # new
-            pts_semantic_mask = torch.tensor(pts_semantic_mask_all[i,:])
-            pts_semantic_mask_expand = pts_semantic_mask.unsqueeze(1).expand(pts_semantic_mask.shape[0], pts_instance_mask_one_hot.shape[1]).clone()
-            pts_semantic_mask_expand[~pts_instance_mask_one_hot.bool()] = -1
-            
-            max_box_labels = self.calculate_box_label(pts_semantic_mask_expand)
-            instances = torch.tensor(instance_unique)
-            modal_bboxes = bboxes
-            modal_instances = instances
-            modal_labels = max_box_labels
-            # modal_bboxes, modal_instances, modal_labels = self.select_scene(bboxes, instances, max_box_labels) 
-        
-            # wait for processing
-            modal_bboxes, modal_instances, modal_labels, amodal_box_mask, amodal_bboxes, amodal_labels = self.match_box([modal_bboxes, modal_instances, modal_labels], [scene_bboxes, scene_instances, scene_labels])
-            gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(modal_bboxes, with_yaw=False, origin=(.5, .5, .5)))
-            gt_modal_labels.append(modal_labels)
-            gt_amodal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(amodal_bboxes, with_yaw=False, origin=(.5, .5, .5)))
-            gt_amodal_labels.append(amodal_labels)
+                # to make sure the assert , u can use one True instead
+                gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5)))
+                gt_modal_labels.append(np.zeros(1).astype('int64'))
+                gt_amodal_box_mask.append(np.zeros(scene_bboxes.shape[0]).astype(np.bool_))
 
         input_dict['modal_box'] = gt_modal_bboxes
         input_dict['modal_label'] = gt_modal_labels
-        input_dict['amodal_box'] = gt_amodal_bboxes
-        input_dict['amodal_label'] = gt_amodal_labels
+        input_dict['amodal_box_mask'] = gt_amodal_box_mask
 
         return input_dict
 

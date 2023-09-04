@@ -20,7 +20,7 @@ model = dict(
     evaluator_mode=evaluator_mode,
     num_slice=num_slice,
     len_slice=len_slice,
-    backbone=dict(type='MinkResNetNN', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
+    backbone=dict(type='MinkResNet', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
     neck=dict(
         type='NgfcTinySegmentationNeck',
         in_channels=(64, 128, 256, 512),

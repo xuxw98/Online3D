@@ -18,7 +18,6 @@ train_pipeline = [
         num_frames=8,
         shift_height=False,
         use_color=True,
-        load_dim=7,
         use_dim=[0, 1, 2, 3, 4, 5],
         ),
     dict(type='LoadAnnotations3D'),
@@ -63,7 +62,6 @@ test_pipeline = [
         num_frames=-1,
         shift_height=False,
         use_color=True,
-        load_dim=7,
         use_dim=[0, 1, 2, 3, 4, 5],
         ),
     dict(
@@ -105,7 +103,7 @@ model = dict(
     len_slice=len_slice)
 
 data = dict(
-    samples_per_gpu=6,
+    samples_per_gpu=4,
     workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',

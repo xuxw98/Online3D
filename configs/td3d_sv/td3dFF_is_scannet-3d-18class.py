@@ -14,7 +14,7 @@ model = dict(
     type='TD3DInstanceSegmentorFF',
     voxel_size=voxel_size,
     img_backbone=dict(type='Resnet_FPN_Backbone',),
-    backbone=dict(type='MinkFFResNetNN', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
+    backbone=dict(type='MinkFFResNet', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
     neck=dict(
         type='NgfcTinySegmentationNeck',
         in_channels=(64, 128, 256, 512),

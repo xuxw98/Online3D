@@ -5,7 +5,7 @@ The processed data can be downloaded from xxx.
 ### Prepare ScanNet-MV data for online tuning
 
 **Step 1.** Download ScanNet v2 data [HERE](https://github.com/ScanNet/ScanNet). Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
-Link or move the 'scans' folder to this level of directory. 
+Link or move the 'scans' and 'meta_data' folder to this level of directory. 
 
 For 2D data, run:
 ```

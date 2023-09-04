@@ -552,8 +552,8 @@ class ScanNetSVData(object):
         # split_file = osp.join('/data1/SCANNET',
         #                       f'scannetv2_{split}.txt')
         assert split in ['train', 'val', 'test']
-        split_file = osp.join(self.root_dir, 'Test_GT_Maker',
-                              f'{split}.txt')
+        split_file = osp.join(self.root_dir, 'meta_data',
+                              f'scannetv2_{split}.txt')
         # split_file = osp.join("/data1/SCANNET",
         #                       f'scannetv2_{split}.txt')
         mmcv.check_file_exist(split_file)

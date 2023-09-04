@@ -5,7 +5,7 @@ The processed data can be downloaded from xxx.
 
 **Step 1.** Download `scannet_frames_25k.zip` [HERE](https://github.com/ScanNet/ScanNet). Link or move the 'scannet_frames_25k' folder to this level of directory.
 Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
-Link or move the 'scans' folder to this level of directory.
+Link or move the 'scans' and 'meta_data' folder to this level of directory.
 For 2D instance data, run:
 ```
 python download-scannet.py -o <ScanNet root> --type _2d-instance.zip

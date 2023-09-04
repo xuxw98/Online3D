@@ -9,6 +9,7 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 from typing import Dict
 import math
+import pdb
 
 TORCH_VERSION = tuple(int(x) for x in torch.__version__.split(".")[:2])
 
@@ -925,7 +926,7 @@ class FPN(Backbone):
     def padding_constraints(self):
         return {"square_size": self._square_pad}
 
-    def forward(self, x):
+    def forward(self, x, img_memory=None):
         """
         Args:
             input (dict[str->Tensor]): mapping feature map name (e.g., "res5") to

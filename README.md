@@ -29,10 +29,10 @@ Finetune and evaluate TD3D (trained with SVFF) on ScanNet-MV:
 Method | mAP@0.25 | mAP@0.5 |
 :--: |:--: | :--: |
 Rec | 70.7 | 56.0
-SV-->finetune | | 
+SV-->finetune | 65.1 | 44.5
 Depth spatial from scratch | 67.7 | 46.7
-SV-->Depth spatial finetume | 69.1 | 48.5
-SV-->RGB temporal + Depth spatial finetune | |
+SV-->Depth spatial finetume | 70.0 | 50.4
+SV-->RGB temporal finetune | |
 SV-->temporal & spatial finetune + consist. loss | | 
 SV-->temporal & spatial finetune + consist. loss + merge | |
 

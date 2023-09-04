@@ -10,7 +10,6 @@ from sklearn.decomposition import PCA
 from sklearn.cluster import DBSCAN
 import trimesh
 import multiprocessing
-from icecream import ic
 import pdb
 import imageio
 import skimage.transform as sktf 
@@ -355,10 +354,10 @@ def get_3d_bbox_new(xyzrgb):
     return bbox_3d, scene_instances
 
 def export_one_scan(scan_name):    
-    mesh_file = os.path.join('3D/scans', scan_name, scan_name + '_vh_clean_2.ply')
-    agg_file = os.path.join('3D/scans', scan_name, scan_name + '.aggregation.json')
-    seg_file = os.path.join('3D/scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json')
-    meta_file = os.path.join('3D/scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.   
+    mesh_file = os.path.join('scans', scan_name, scan_name + '_vh_clean_2.ply')
+    agg_file = os.path.join('scans', scan_name, scan_name + '.aggregation.json')
+    seg_file = os.path.join('scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json')
+    meta_file = os.path.join('scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.   
     mesh_vertices, semantic_labels, instance_labels, bboxes, instance2semantic = \
         export(mesh_file, agg_file, seg_file, meta_file, 'meta_data/scannetv2-labels.combined.tsv', None)
 
@@ -425,6 +424,7 @@ def select_points_in_bbox(xyzrgb, bboxes, bbox_instance_labels):
                 cnt = cnt+1
                 if mask[cnt]:
                     instance_new_xyzrgb[j] = instance_target
+                    semantic[j] = bboxes[i,-1]
 
     xyzrgb_new = np.concatenate([xyzrgb[:,:6].copy(), semantic.reshape(-1,1), instance_new_xyzrgb.reshape(-1,1)], axis=1)
     if len(xyz_new) == 0:

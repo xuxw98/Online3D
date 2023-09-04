@@ -345,15 +345,14 @@ class PointSegClassMappingV2(object):
         pts_semantic_mask = results['pts_semantic_mask']
         converted_pts_sem_mask = self.cat_id2class[pts_semantic_mask]
 
-        mask = converted_pts_sem_mask >= 0
         pts_instance_mask = results['pts_instance_mask']
-        instance_ids = np.unique(pts_instance_mask[mask])
+        instance_ids = np.unique(pts_instance_mask)
         # assert len(instance_ids) == len(results['gt_bboxes_3d'])
-        mapping = -np.ones(
+        mapping = np.zeros(
             pts_instance_mask.max() + 1, dtype=np.int)
         for i, instance_id in enumerate(instance_ids):
             mapping[instance_id] = i
-        converted_pts_instance_mask = mapping[pts_instance_mask]
+        converted_pts_instance_mask = mapping[pts_instance_mask] - 1
 
         results['pts_semantic_mask'] = converted_pts_sem_mask
         results['pts_instance_mask'] = converted_pts_instance_mask
@@ -367,9 +366,8 @@ class PointSegClassMappingV2(object):
         return repr_str
 
 
-
 @PIPELINES.register_module()
-class MultiViewsPointSegClassMapping(object):
+class MultiViewsPointSegClassMappingV2(object):
     """Map original semantic class to valid category ids.
 
     Map valid classes as 0~len(valid_cat_ids)-1 and
@@ -389,10 +387,8 @@ class MultiViewsPointSegClassMapping(object):
         self.max_cat_id = int(max_cat_id)
 
         # build cat_id to class index mapping
-        neg_cls = len(valid_cat_ids)
-        self.cat_id2class = np.ones(
-            self.max_cat_id + 1, dtype=np.int) * neg_cls
-        # 0~40 18
+        self.cat_id2class = -np.ones(
+            self.max_cat_id + 1, dtype=np.int)
         for cls_idx, cat_id in enumerate(valid_cat_ids):
             self.cat_id2class[cat_id] = cls_idx
 
@@ -407,12 +403,24 @@ class MultiViewsPointSegClassMapping(object):
                 Updated key and value are described below.
 
                 - pts_semantic_mask (np.ndarray): Mapped semantic masks.
+                - pts_instance_mask (np.ndarray): Mapped instance masks.
         """
-        # assert 'semantic_info' in results
-        pts_semantic_masks = results['pts_semantic_mask']
-        pts_semantic_masks = pts_semantic_masks.astype(np.int8)
-        pts_semantic_masks = self.cat_id2class[pts_semantic_masks]
-        results['pts_semantic_mask'] = pts_semantic_masks
+        assert 'pts_semantic_mask' in results
+        pts_semantic_mask = np.clip(results['pts_semantic_mask'],0,40)
+        converted_pts_sem_mask = self.cat_id2class[pts_semantic_mask]
+
+        # mask = converted_pts_sem_mask >= 0
+        pts_instance_mask = results['pts_instance_mask']
+        instance_ids = np.unique(pts_instance_mask)
+        # # assert len(instance_ids) == len(results['gt_bboxes_3d'])
+        mapping = np.zeros(
+             pts_instance_mask.max() + 1, dtype=np.int)
+        for i, instance_id in enumerate(instance_ids):
+            mapping[instance_id] = i
+        converted_pts_instance_mask = mapping[pts_instance_mask] - 1
+
+        results['pts_semantic_mask'] = converted_pts_sem_mask
+        results['pts_instance_mask'] = converted_pts_instance_mask
         return results
 
     def __repr__(self):
@@ -600,11 +608,9 @@ class LoadAdjacentViewsFromFiles(object):
     def __init__(self,
                  coord_type,
                  num_frames=8,
-                 load_dim=7,
                  use_dim=[0, 1, 2],
                  num_sample=5000,
                  use_ins_sem=False,
-                 use_sample=True,
                  use_amodal_points=False,
                  interval=2,
                  shift_height=False,
@@ -613,24 +619,21 @@ class LoadAdjacentViewsFromFiles(object):
         self.shift_height = shift_height
         self.use_color = use_color
         self.use_ins_sem = use_ins_sem
-        self.use_sample = use_sample
         self.use_amodal_points = use_amodal_points
         if isinstance(use_dim, int):
             use_dim = list(range(use_dim))
-        assert max(use_dim) < load_dim, \
-            f'Expect all used dimensions < {load_dim}, got {use_dim}'
         assert coord_type in ['CAMERA', 'LIDAR', 'DEPTH']
 
         self.coord_type = coord_type
         self.num_frames = num_frames
         self.num_sample = num_sample
         self.interval = interval
-        self.load_dim = load_dim
         self.use_dim = use_dim
         self.file_client_args = file_client_args.copy()
         self.file_client = None
         self.loader = Compose([dict(type = 'LoadImageFromFile')])
 
+    # Only for detection
     def _load_points(self, pts_filenames):
         # points: num_frames, 5000, 3+C
         points = [np.load(info['filename']) for info in pts_filenames]
@@ -641,47 +644,55 @@ class LoadAdjacentViewsFromFiles(object):
     def _load_amodal_points_ins_sem(self, pts_filenames, instance_filenames, semantic_filenames, annos):
         # points: num_frames, 5000, 3+C
         points = [np.load(info['filename']) for info in pts_filenames]
-        instance = [np.load(info['filename']).astype(np.int8) for info in instance_filenames]
-        semantic = [np.load(info['filename']).astype(np.int8) for info in semantic_filenames]
+        instance = [np.load(info['filename']).astype(np.int64) for info in instance_filenames]
+        semantic = [np.load(info['filename']).astype(np.int64) for info in semantic_filenames]
 
         points_new = []
         instance_new = []
         semantic_new = []
         for i in range(len(points)):
-            if self.use_sample:
-                choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
-                points_new.append(points[i][choice])
-                instance_new.append(instance[i][choice])
-                semantic_new.append(semantic[i][choice])
-            else:
-                points_new.append(points[i])
-                instance_new.append(instance[i])
-                semantic_new.append(semantic[i])
+            choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
+            points_new.append(points[i][choice])
+            instance_new.append(instance[i][choice])
+            semantic_new.append(semantic[i][choice])
 
         points = np.concatenate(points_new, axis=0)
         instance = np.concatenate(instance_new, axis=0)
         semantic = np.concatenate(semantic_new, axis=0)
+
+        instance_unique = np.unique(instance)
+        points_all = []
+        instance_all = []
+        semantic_all = []
+        for i, instance_id in enumerate(instance_unique):
+            if instance_id == 0:
+                continue
+            mask = (instance == instance_id)
+            points_all.append(points[mask]) 
+            instance_all.append(instance[mask])
+            semantic_all.append(semantic[mask])
+
+        points = np.concatenate(points_all, axis=0)
+        instance = np.concatenate(instance_all, axis=0)
+        semantic = np.concatenate(semantic_all, axis=0)
+
         return points, instance, semantic      
 
     def _load_points_ins_sem(self, pts_filenames, instance_filenames, semantic_filenames):
         # points: num_frames, 5000, 3+C
         points = [np.load(info['filename']) for info in pts_filenames]
-        instance = [np.load(info['filename']).astype(np.int8) for info in instance_filenames]
-        semantic = [np.load(info['filename']).astype(np.int8) for info in semantic_filenames]
+        instance = [np.load(info['filename']).astype(np.int64) for info in instance_filenames]
+        semantic = [np.load(info['filename']).astype(np.int64) for info in semantic_filenames]
 
         points_new = []
         instance_new = []
         semantic_new = []
         for i in range(len(points)):
-            if self.use_sample:
-                choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
-                points_new.append(points[i][choice])
-                instance_new.append(instance[i][choice])
-                semantic_new.append(semantic[i][choice])
-            else:
-                points_new.append(points[i])
-                instance_new.append(instance[i])
-                semantic_new.append(semantic[i])
+            choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
+            points_new.append(points[i][choice])
+            instance_new.append(instance[i][choice])
+            semantic_new.append(semantic[i][choice])
+
         points = np.concatenate(points_new, axis=0)
         instance = np.concatenate(instance_new, axis=0)
         semantic = np.concatenate(semantic_new, axis=0)
@@ -798,7 +809,6 @@ class LoadAdjacentViewsFromFiles(object):
         repr_str += f'shift_height={self.shift_height}, '
         repr_str += f'use_color={self.use_color}, '
         repr_str += f'file_client_args={self.file_client_args}, '
-        repr_str += f'load_dim={self.load_dim}, '
         repr_str += f'use_dim={self.use_dim})'
         return repr_str
 
