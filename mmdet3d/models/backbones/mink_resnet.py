@@ -81,6 +81,7 @@ class MinkResNet(nn.Module):
                 nn.init.constant_(m.bn.weight, 1)
                 nn.init.constant_(m.bn.bias, 0)
 
+
     def _make_layer(self, block, planes, blocks, stride):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:

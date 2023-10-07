@@ -28,6 +28,7 @@ import MinkowskiEngine.MinkowskiFunctional as MF
 
 from MinkowskiEngine.modules.resnet_block import BasicBlock, Bottleneck
 from mmdet3d.models.builder import BACKBONES
+import pdb
 
 class ResNetBase(nn.Module):
     BLOCK = None
@@ -467,3 +468,95 @@ class CustomUNet(ME.MinkowskiNetwork):
         out = MF.relu(self.block1_tr(out))
 
         return self.conv1_tr(out)
+
+
+class MinkUNetBase_SemsegFF(MinkUNetBase):
+    def forward(self, x, f=None, memory=None):
+        out = self.conv0p1s1(x)
+        out = self.bn0(out)
+        out_p1 = self.relu(out)
+        if f is not None:
+            out_p1 = f(out_p1)
+
+        out = self.conv1p1s2(out_p1)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out_b1p2 = self.block1(out)
+
+        out = self.conv2p2s2(out_b1p2)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out_b2p4 = self.block2(out)
+
+        out = self.conv3p4s2(out_b2p4)
+        out = self.bn3(out)
+        out = self.relu(out)
+        out_b3p8 = self.block3(out)
+
+        # tensor_stride=16
+        out = self.conv4p8s2(out_b3p8)
+        out = self.bn4(out)
+        out = self.relu(out)
+        out = self.block4(out)
+
+        if memory is not None:
+            out_b1p2_temp, out_b2p4_temp, out_b3p8_temp, out_temp = out_b1p2, out_b2p4, out_b3p8, out
+            out_b1p2, out_b2p4, out_b3p8, out = memory([out_b1p2, out_b2p4, out_b3p8, out])
+            out_b1p2 = ME.SparseTensor(coordinate_map_key=out_b1p2_temp.coordinate_map_key, features=out_b1p2.features_at_coordinates(out_b1p2_temp.coordinates.float()), tensor_stride=out_b1p2_temp.tensor_stride, coordinate_manager=out_b1p2_temp.coordinate_manager)
+            out_b2p4 = ME.SparseTensor(coordinate_map_key=out_b2p4_temp.coordinate_map_key, features=out_b2p4.features_at_coordinates(out_b2p4_temp.coordinates.float()), tensor_stride=out_b2p4_temp.tensor_stride, coordinate_manager=out_b2p4_temp.coordinate_manager)
+            out_b3p8 = ME.SparseTensor(coordinate_map_key=out_b3p8_temp.coordinate_map_key, features=out_b3p8.features_at_coordinates(out_b3p8_temp.coordinates.float()), tensor_stride=out_b3p8_temp.tensor_stride, coordinate_manager=out_b3p8_temp.coordinate_manager)
+            out = ME.SparseTensor(coordinate_map_key=out_temp.coordinate_map_key, features=out.features_at_coordinates(out_temp.coordinates.float()), tensor_stride=out_temp.tensor_stride, coordinate_manager=out_temp.coordinate_manager)
+        # tensor_stride=8
+        out = self.convtr4p16s2(out)
+        out = self.bntr4(out)
+        out = self.relu(out)
+        out = ME.cat(out, out_b3p8)
+        out = self.block5(out)
+
+        # tensor_stride=4
+        out = self.convtr5p8s2(out)
+        out = self.bntr5(out)
+        out = self.relu(out)
+
+        out = ME.cat(out, out_b2p4)
+        out = self.block6(out)
+
+        # tensor_stride=2
+        out = self.convtr6p4s2(out)
+        out = self.bntr6(out)
+        out = self.relu(out)
+
+        out = ME.cat(out, out_b1p2)
+        out = self.block7(out)
+
+        # tensor_stride=1
+        out = self.convtr7p2s2(out)
+        out = self.bntr7(out)
+        out = self.relu(out)
+
+        out = ME.cat(out, out_p1)
+        out = self.block8(out)
+
+        return self.final(out)
+
+
+@BACKBONES.register_module()
+class MinkUNet34_SemsegFF(MinkUNetBase_SemsegFF):
+    BLOCK = BasicBlock
+    LAYERS = (2, 3, 4, 6, 2, 2, 2, 2)
+
+@BACKBONES.register_module()
+class MinkUNet34C_SemsegFF(MinkUNet34_SemsegFF):
+    # change the first 32 to 64 for FF
+    INIT_DIM = 32
+    PLANES = (32, 64, 128, 256, 256, 128, 96, 96)
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, ME.MinkowskiConvolution):
+                ME.utils.kaiming_normal_(
+                    m.kernel, mode='fan_out', nonlinearity='relu')
+
+            if isinstance(m, ME.MinkowskiBatchNorm):
+                nn.init.constant_(m.bn.weight, 1)
+                nn.init.constant_(m.bn.bias, 0)

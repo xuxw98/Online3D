@@ -16,73 +16,53 @@ import pdb
 
 @NECKS.register_module()
 class MultilevelImgMemory(BaseModule):
-    def __init__(self, in_channels=[256, 512, 1024, 2048], keys=['res2', 'res3', 'res4', 'res5'], ada_layer=(3,)):
+    def __init__(self, voxel_size, in_channels=[256, 512, 1024, 2048], keys=['res2', 'res3', 'res4', 'res5'], ada_layer=(1,2,3), semseg=False):
         super(MultilevelImgMemory, self).__init__()
+        self.voxel_size = voxel_size
         self.ada_layer = list(ada_layer)
+        self.reorg_list = nn.ModuleList()
         self.conv_list = nn.ModuleList()
-        for i, C in enumerate(in_channels):
+        self.orgback_list = nn.ModuleList()
+        self.spconv2d_list = nn.ModuleList()
+        for i, in_channel in enumerate(in_channels):
+            C = in_channel // 2
             if i in self.ada_layer:
+                self.reorg_list.append(nn.Linear(in_channel, C))
                 self.conv_list.append(nn.Sequential(
-                    # pw
-                    nn.Conv2d(C, C // 4, 1, 1, 0, bias=False),
-                    nn.BatchNorm2d(C // 4),
+                    nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1),
+                    nn.BatchNorm2d(C),
                     nn.ReLU(inplace=True),
-                    # dw
-                    nn.Conv2d(C // 4, C // 4, 3, 1, 1, groups=C // 4, bias=False),
-                    nn.BatchNorm2d(C // 4),
-                    nn.ReLU(inplace=True),
-                    # pw-linear
-                    nn.Conv2d(C // 4, C, 1, 1, 0, bias=False),
+                    nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1),
                     nn.BatchNorm2d(C)))
+                self.orgback_list.append(nn.Linear(C, in_channel))
+                self.spconv2d_list.append(nn.Sequential(
+                    ME.MinkowskiConvolution(
+                        in_channels=C if semseg else C // 2,
+                        out_channels=C,
+                        kernel_size=3,
+                        stride=1,
+                        dilation=1,
+                        bias=False,
+                        dimension=2),
+                    ME.MinkowskiBatchNorm(C),
+                    ME.MinkowskiReLU(),
+                    ME.MinkowskiConvolution(
+                        in_channels=C,
+                        out_channels=C,
+                        kernel_size=3,
+                        stride=1,
+                        dilation=1,
+                        bias=False,
+                        dimension=2),
+                    ME.MinkowskiBatchNorm(C)))
             else:
+                self.reorg_list.append(nn.Identity())
                 self.conv_list.append(nn.Identity())
+                self.orgback_list.append(nn.Identity())
+                self.spconv2d_list.append(nn.Identity())
         self.keys = keys
         self.cached = {k: None for k in keys}
-    
-    def init_weights(self, pretrained=None):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                constant_init(m.weight, 0)
-
-            if isinstance(m, nn.BatchNorm2d):
-                constant_init(m.weight, 1)
-                constant_init(m.bias, 0)
-    
-    def reset(self):
-        self.cached = {k: None for k in self.keys}
-    
-    def forward(self, x):
-        # B C H W
-        for i, key in enumerate(self.keys):
-            if i in self.ada_layer:
-                fold = x[key].shape[1] // 8
-                out = torch.zeros_like(x[key])
-                out[:, fold:] = x[key][:, fold:]
-                if self.cached[key] is not None:
-                    out[:, :fold] = self.cached[key]
-                self.cached[key] = x[key][:, :fold]
-                # TODO: remove this relu for both RGB and D
-                x[key] = F.relu(self.conv_list[i](out) + x[key])
-        return x
-
-
-@NECKS.register_module()
-class ImgMemory(BaseModule):
-    def __init__(self, in_channels=256, with_depth=True):
-        super(ImgMemory, self).__init__()
-        C = in_channels // 2
-        self.reorg = nn.Linear(in_channels, C)
-        self.conv = nn.Sequential(
-            nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(C),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(C)
-        )
-        self.orgback = nn.Linear(C, in_channels)
-        self.with_depth = with_depth
-        self.cached = None
-        self.pre_points, self.num_points, self.pre_features = None, None, None
+        self.acc_feats_3d = None
     
     def init_weights(self, pretrained=None):
         for m in self.modules():
@@ -95,39 +75,160 @@ class ImgMemory(BaseModule):
             if isinstance(m, nn.BatchNorm2d):
                 constant_init(m.weight, 1)
                 constant_init(m.bias, 0)
+            if isinstance(m, ME.MinkowskiConvolution):
+                constant_init(m.kernel, 0)
+            if isinstance(m, ME.MinkowskiBatchNorm):
+                constant_init(m.bn.weight, 1)
+                constant_init(m.bn.bias, 0)
     
-    def register(self, inputs, mode):
-        assert mode in ['point', 'feature']
-        if mode == 'point':
-            self.pre_points = inputs
-            self.num_points = inputs[0].shape[0]
-            # if self.pre_points is None:
-            #     self.pre_points = inputs
-            #     self.num_points = inputs[0].shape[0]
-            # else:
-            #     self.pre_points = [torch.cat([pp, inputs[i]], dim=0)[-self.max_points:]
-            #                         for i, pp in enumerate(self.pre_points)]
-            #     self.num_points = min(self.max_points, self.num_points + inputs[0].shape[0])
+    def register(self, acc_feats_3d):
+        self.acc_feats_3d = acc_feats_3d
+    
+    def reset(self):
+        self.cached = {k: None for k in self.keys}
+        self.acc_feats_3d = None
+    
+    def forward(self, x, img_metas):
+        # B C H W
+        for i, key in enumerate(self.keys):
+            if i in self.ada_layer:
+                x_reorg = self.reorg_list[i](x[key].permute(0,2,3,1).contiguous()).permute(0,3,1,2).contiguous()
+
+                ## 3D-->2D
+                if self.acc_feats_3d is not None:
+                    points = self.acc_feats_3d[i].decomposed_coordinates
+                    for k in range(len(points)):
+                        points[k] = points[k] * self.voxel_size
+                    features = self.acc_feats_3d[i].decomposed_features
+                    img_coords_feats = []
+                    for point, feature, img_meta in zip(points, features, img_metas):
+                        coord_type = 'DEPTH'
+                        img_scale_factor = (
+                            point.new_tensor(img_meta['scale_factor'][:2])
+                            if 'scale_factor' in img_meta.keys() else 1)
+                        img_crop_offset = (
+                            point.new_tensor(img_meta['img_crop_offset'])
+                            if 'img_crop_offset' in img_meta.keys() else 0)
+                        proj_mat = get_proj_mat_by_coord_type(img_meta, coord_type)
+                        img_coords_feats.append(point_project( # project: consider points behind camera
+                            img_meta=img_meta,
+                            points=point,
+                            features=feature,
+                            proj_mat=point.new_tensor(proj_mat),
+                            coord_type=coord_type,
+                            img_scale_factor=img_scale_factor,
+                            img_crop_offset=img_crop_offset))
+                    # coords in raw image, should convert to corresponding stage
+                    coordinates, features = ME.utils.batch_sparse_collate(
+                        [(c / 2**(i+2), f) for c, f in img_coords_feats],
+                        device=features[0].device)
+                    keep_idx = (coordinates[:,1] >= 0) * (coordinates[:,1] < x[key].shape[-2]) * \
+                        (coordinates[:,2] >= 0) * (coordinates[:,2] < x[key].shape[-1])
+                    coordinates, features = coordinates[keep_idx], features[keep_idx]
+                    if len(coordinates) > 0:
+                        acc_imgs = ME.TensorField(coordinates=coordinates, features=features, 
+                            quantization_mode=ME.SparseTensorQuantizationMode.MAX_POOL).sparse()
+                        acc_imgs = self.spconv2d_list[i](acc_imgs)
+                        acc_imgs = acc_imgs.dense(shape=x_reorg.shape, min_coordinate=torch.IntTensor([0,0]))[0]
+                        x_reorg += acc_imgs
+
+                ## Temporal Shift
+                fold = x_reorg.shape[1] // 8
+                out = torch.zeros_like(x_reorg)
+                out[:, fold:] = x_reorg[:, fold:]
+                if self.cached[key] is not None:
+                    out[:, :fold] = self.cached[key]
+                self.cached[key] = x_reorg[:, :fold]
+
+                ## 2D Aggregation
+                # TODO: remove this relu for both RGB and D
+                # TODO: bottleneck for D
+                x[key] = self.orgback_list[i](self.conv_list[i](out).permute(0,2,3,1).contiguous()). \
+                    permute(0,3,1,2).contiguous() + x[key]
+        return x
+
+
+
+# This single-stage ImgMemory should be inserted after decoder.
+@NECKS.register_module()
+class ImgMemory(BaseModule):
+    def __init__(self, voxel_size, in_channels=256):
+        super(ImgMemory, self).__init__()
+        self.voxel_size = voxel_size
+        C = in_channels
+        # C = in_channels // 2
+        self.reorg = nn.Linear(in_channels, C)
+        self.conv = nn.Sequential(
+            nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(C),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(C, C, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(C)
+        )
+        self.orgback = nn.Linear(C, in_channels)
+        self.spconv2d = nn.Sequential(
+            ME.MinkowskiConvolution(
+                in_channels=C*8,
+                # in_channels=C // 2,
+                out_channels=C,
+                kernel_size=3,
+                stride=1,
+                dilation=1,
+                bias=False,
+                dimension=2),
+            ME.MinkowskiBatchNorm(C),
+            ME.MinkowskiReLU(),
+            ME.MinkowskiConvolution(
+                in_channels=C,
+                out_channels=C,
+                kernel_size=3,
+                stride=1,
+                dilation=1,
+                bias=False,
+                dimension=2),
+            ME.MinkowskiBatchNorm(C))
+        self.cached = None
+        self.acc_feat_3d = None
+    
+    def init_weights(self, pretrained=None):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                constant_init(m.weight, 0)
+                constant_init(m.bias, 0)
+            if isinstance(m, nn.Linear):
+                constant_init(m.weight, 0)
+                constant_init(m.bias, 0)
+            if isinstance(m, nn.BatchNorm2d):
+                constant_init(m.weight, 1)
+                constant_init(m.bias, 0)
+            if isinstance(m, ME.MinkowskiConvolution):
+                constant_init(m.kernel, 0)
+            if isinstance(m, ME.MinkowskiBatchNorm):
+                constant_init(m.bn.weight, 1)
+                constant_init(m.bn.bias, 0)
+    
+    def register(self, acc_feats_3d):
+        # TODO: which level of 3D feature is the best?
+        if acc_feats_3d is not None:
+            self.acc_feat_3d = acc_feats_3d[-1]
         else:
-            self.pre_features = inputs
-            # if self.pre_features is None:
-            #     self.pre_features = inputs
-            # else:
-            #     self.pre_features = [torch.cat([pf, inputs[i]], dim=0)[-self.max_points:]
-            #                         for i, pf in enumerate(self.pre_features)]
+            self.acc_feat_3d = None
 
     def reset(self):
         self.cached = None
-        self.pre_points, self.num_points, self.pre_features = None, None, None
+        self.acc_feat_3d = None
     
     def forward(self, x, img_metas):
-        ## Project and Pixel-Max-Pooling
-        acc_imgs = None
-        if self.pre_points is not None and self.with_depth:
-            acc_points = self.pre_points
-            acc_features = self.pre_features
+        x_reorg = self.reorg(x.permute(0,2,3,1).contiguous()).permute(0,3,1,2).contiguous()
+
+        ## 3D-->2D
+        if self.acc_feat_3d is not None:
+            points = self.acc_feat_3d.decomposed_coordinates
+            for k in range(len(points)):
+                points[k] = points[k] * self.voxel_size
+            features = self.acc_feat_3d.decomposed_features
             img_coords_feats = []
-            for point, feature, img_meta in zip(acc_points, acc_features, img_metas):
+            for point, feature, img_meta in zip(points, features, img_metas):
                 coord_type = 'DEPTH'
                 img_scale_factor = (
                     point.new_tensor(img_meta['scale_factor'][:2])
@@ -144,32 +245,30 @@ class ImgMemory(BaseModule):
                     coord_type=coord_type,
                     img_scale_factor=img_scale_factor,
                     img_crop_offset=img_crop_offset))
-            # coords in raw image, should convert to 'p2'
+            # coords in raw image, should convert to corresponding stage. c / 2 for ResUnet
             coordinates, features = ME.utils.batch_sparse_collate(
-                [(c / 4, f) for c, f in img_coords_feats],
-                device=acc_features[0].device)
+                [(c / 2, f) for c, f in img_coords_feats],
+                device=features[0].device)
             keep_idx = (coordinates[:,1] >= 0) * (coordinates[:,1] < x.shape[-2]) * \
                 (coordinates[:,2] >= 0) * (coordinates[:,2] < x.shape[-1])
             coordinates, features = coordinates[keep_idx], features[keep_idx]
             if len(coordinates) > 0:
                 acc_imgs = ME.TensorField(coordinates=coordinates, features=features, 
                     quantization_mode=ME.SparseTensorQuantizationMode.MAX_POOL).sparse()
-                acc_imgs = acc_imgs.dense(shape=x.shape, min_coordinate=torch.IntTensor([0,0]))[0]
+                acc_imgs = self.spconv2d(acc_imgs)
+                acc_imgs = acc_imgs.dense(shape=x_reorg.shape, min_coordinate=torch.IntTensor([0,0]))[0]
+                x_reorg += acc_imgs
 
-        ## Temporal Shift and 2D Aggregation
-        x_ = x.clone()
-        if acc_imgs is not None:
-            pmp_index = (acc_imgs != 0)
-            x_[pmp_index] = torch.maximum(x_[pmp_index], acc_imgs[pmp_index]) # PMP
-        x_reorg = self.reorg(x_.permute(0,2,3,1).contiguous()).permute(0,3,1,2).contiguous()
+        ## Temporal Shift
         fold = x_reorg.shape[1] // 8
         out = torch.zeros_like(x_reorg)
         out[:, fold:] = x_reorg[:, fold:]
         if self.cached is not None:
             out[:, :fold] = self.cached
         self.cached = x_reorg[:, :fold]
+
+        ## 2D Aggregation
         # TODO: remove this relu for both RGB and D
         # TODO: bottleneck for D
-        # TODO: pre_feature should be raw 'p2' or 'p2' after PMP
         x = self.orgback(self.conv(out).permute(0,2,3,1).contiguous()).permute(0,3,1,2).contiguous() + x
-        return x, x_
+        return x

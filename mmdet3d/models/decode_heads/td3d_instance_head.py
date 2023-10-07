@@ -48,6 +48,7 @@ class Mink3DRoIExtractor:
                     features.new_zeros((0, 7)),
                     features.new_zeros(0),
                     coordinates.new_zeros(0))
+        
         points = coordinates * self.voxel_size
         points = points.unsqueeze(1).expand(n_points, n_boxes, 3)
         rois = rois.unsqueeze(0).expand(n_points, n_boxes, 7)
@@ -61,7 +62,7 @@ class Mink3DRoIExtractor:
         nonzero = torch.nonzero(inside_condition)
         new_coordinates = coordinates[nonzero[:, 0]]
         return nonzero[:, 1], new_coordinates, features[nonzero[:, 0]], rois, scores, labels
-
+        
     def extract(self, tensors, levels, rois, scores, labels):
         # tensors: list[SparseTensor] of len n_levels
         # levels: list[Tensor] of len batch_size;
@@ -115,8 +116,8 @@ class Mink3DRoIExtractor:
             new_rois.append(new_roi)
             new_scores.append(new_score)
             new_labels.append(new_label)
-
         return new_tensors, new_ids, new_rois, new_scores, new_labels
+    
 
 @BBOX_ASSIGNERS.register_module()
 class MaxIoU3DAssigner:
@@ -556,7 +557,8 @@ class TD3DInstanceHead(BaseModule):
         src_idxs = torch.arange(0, x[0].features.shape[0]).to(inverse_mapping.device)
         src_idxs = src_idxs.unsqueeze(1).expand(src_idxs.shape[0], 2)
         cls_preds, idxs, v2r, r2scene, rois, scores, labels = self._forward_second(x[0], src_idxs, bbox_list)
-        return self._get_instances(cls_preds[:, -1], idxs[:, 0], v2r, r2scene, scores, labels, inverse_mapping, img_metas)
+        instances = self._get_instances(cls_preds[:, -1], idxs[:, 0], v2r, r2scene, scores, labels, inverse_mapping, img_metas)
+        return instances
 
 
     def _nms(self, bboxes, scores, cfg, img_meta):

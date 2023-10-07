@@ -12,7 +12,7 @@ from functools import partial
 from mmdet3d.core import bbox3d2result
 from mmdet3d.models import DETECTORS, build_backbone, build_head, build_neck
 from .base import Base3DDetector
-from mmdet3d.models.fusion_layers.point_fusion import point_sample2
+from mmdet3d.models.fusion_layers.point_fusion import point_sample
 from mmdet3d.core.bbox.structures import get_proj_mat_by_coord_type
 import numpy as np
 import torch.nn as nn
@@ -64,6 +64,7 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
         if memory is not None:
             self.memory = build_neck(memory)
         if img_memory is not None:
+            img_memory['voxel_size'] = voxel_size
             self.img_memory = build_neck(img_memory)
         self.conv = nn.Sequential(
             ME.MinkowskiConvolution(256, 64, kernel_size=1, dimension=3),
@@ -89,32 +90,29 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
         Returns:
             SparseTensor: Voxelized point clouds.
         """
-        with torch.no_grad():
-            img_features = self.img_backbone(img)['p2']
         if hasattr(self, 'img_memory'):
-            img_features, img_features_ori = self.img_memory(img_features, img_metas)
-            self.img_memory.register([p[:,:3] for p in points], 'point')
+            self.img_memory.register(self.memory.accumulated_feats)
+            img_features = self.img_backbone(img, memory=partial(self.img_memory, img_metas=img_metas))['p2']
+        else:
+            with torch.no_grad():
+                img_features = self.img_backbone(img)['p2']
         
         coordinates, features = ME.utils.batch_sparse_collate(
             [(p[:, :3] / self.voxel_size, p[:, 3:]) for p in points],
             device=points[0].device)
         x = ME.SparseTensor(coordinates=coordinates, features=features)
         x = self.backbone(x,partial(
-            self._f, img_features=img_features, img_metas=img_metas, img_shape=img.shape, 
-            img_memory=self.img_memory if hasattr(self, 'img_memory') else None,
-            img_features_ori=img_features_ori))
+            self._f, img_features=img_features, img_metas=img_metas, img_shape=img.shape))
         if hasattr(self, 'memory'):
             x = self.memory(x)
         return x
     
-    def _f(self, x, img_features, img_metas, img_shape, img_memory, img_features_ori):
+    def _f(self, x, img_features, img_metas, img_shape):
         points = x.decomposed_coordinates
         for i in range(len(points)):
             points[i] = points[i] * self.voxel_size
-            if img_memory is not None:
-                points[i] = torch.cat([points[i], img_memory.pre_points[i]], dim=0)
         projected_features = []
-        for point, img_feature, img_feature_ori, img_meta in zip(points, img_features, img_features_ori, img_metas):
+        for point, img_feature, img_meta in zip(points, img_features, img_metas):
             coord_type = 'DEPTH'
             img_scale_factor = (
                 point.new_tensor(img_meta['scale_factor'][:2])
@@ -125,12 +123,10 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
                 point.new_tensor(img_meta['img_crop_offset'])
                 if 'img_crop_offset' in img_meta.keys() else 0)
             proj_mat = get_proj_mat_by_coord_type(img_meta, coord_type)
-            projected_features.append(point_sample2(
+            projected_features.append(point_sample(
                 img_meta=img_meta,
                 img_features=img_feature.unsqueeze(0),
-                img_features_ori=img_feature_ori.unsqueeze(0),
                 points=point,
-                memory_point_num=img_memory.num_points,
                 proj_mat=point.new_tensor(proj_mat),
                 coord_type=coord_type,
                 img_scale_factor=img_scale_factor,
@@ -141,10 +137,6 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
                 aligned=True,
                 padding_mode='zeros',
                 align_corners=True))
-            
-        if img_memory is not None:
-            img_memory.register([pf[1] for pf in projected_features], 'feature')
-            projected_features = [pf[0] for pf in projected_features]
 
         projected_features = torch.cat(projected_features, dim=0)
         projected_features = ME.SparseTensor(

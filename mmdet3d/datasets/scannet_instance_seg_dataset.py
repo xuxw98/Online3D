@@ -15,6 +15,7 @@ from .custom_3d_seg import Custom3DSegDataset
 from .pipelines import Compose
 from .scannet_dataset import ScanNetDataset, ScanNetSVDataset, ScanNetMVDataset
 import pdb
+import torch
 
 
 @DATASETS.register_module()
@@ -424,18 +425,19 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
                 type='LoadAdjacentViewsFromFiles',
                 coord_type='DEPTH',
                 num_frames=-1,
+                max_frames=50,
+                num_sample=20000,
                 shift_height=False,
+                use_ins_sem=True,
                 use_color=True,
-                use_sample=False,
-                load_dim=7,
                 use_dim=[0, 1, 2, 3, 4, 5],
                 ),
             dict(
                 type='LoadAnnotations3D',
                 with_bbox_3d=False,
                 with_label_3d=False,
-                with_mask_3d=True,
-                with_seg_3d=True),
+                with_mask_3d=False,
+                with_seg_3d=False),
             dict(
                 type='MultiViewFormatBundle3D',
                 class_names=self.CLASSES),
@@ -471,6 +473,7 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
         Returns:
             dict: Evaluation results.
         """
+
         assert isinstance(
             results, list), f'Expect results to be list, got {type(results)}.'
         assert len(results) > 0, 'Expect length of results > 0.'
@@ -483,32 +486,41 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
         pred_instance_masks = []
         pred_instance_labels = []
         pred_instance_scores = []
+        #pred_instance_indexes = []
         for i in range(len(results)):
-            pred_instance_masks.append([result['pred_instance_masks'] for result in results[i]])
-            pred_instance_labels.append([result['pred_instance_labels'] for result in results[i]])
-            pred_instance_scores.append([result['pred_instance_scores'] for result in results[i]])
-        
+            pred_instance_masks.append([result[0]['instance_mask'] for result in results[i]])
+            pred_instance_labels.append([result[0]['instance_label'] for result in results[i]])
+            pred_instance_scores.append([result[0]['instance_score'] for result in results[i]])
+            #pred_instance_indexes.append([result[0]['instance_index'] for result in results[i]])
+
+
         load_pipeline = self._build_default_pipeline()
-        gt_semantic_masks, gt_instance_masks = zip(*[
+        points, gt_semantic_masks, gt_instance_masks = zip(*[
             self._extract_data(
                 index=i,
                 pipeline=load_pipeline,
-                key=['pts_semantic_mask', 'pts_instance_mask'],
+                key=['points', 'pts_semantic_mask', 'pts_instance_mask'],
                 load_annos=True) for i in range(len(self.data_infos))
         ])
+        
+        use_voxel_eval = False
         ret_dict = multiview_instance_seg_eval_v2(
-            gt_semantic_masks,
-            gt_instance_masks,
+            points,
+            [gt_semantic_masks[i].reshape(points[i].shape[0], points[i].shape[1]).int() for i in range(len(points))],
+            [gt_instance_masks[i].reshape(points[i].shape[0], points[i].shape[1]).int() for i in range(len(points))],
             pred_instance_masks,
             pred_instance_labels,
             pred_instance_scores,
+            #pred_instance_indexes,
             valid_class_ids=self.VALID_CLASS_IDS,
             class_labels=self.CLASSES,
             options=options,
             logger=logger,
             evaluator_mode=self.evaluator_mode,
             num_slice=self.num_slice,
-            len_slice=self.len_slice)
+            len_slice=self.len_slice,
+            voxel_size=0.02,
+            use_voxel_eval=use_voxel_eval)
 
         if show:
             self.show(results, out_dir)

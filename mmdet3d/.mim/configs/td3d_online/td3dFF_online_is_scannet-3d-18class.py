@@ -23,15 +23,16 @@ model = dict(
     num_slice=num_slice,
     len_slice=len_slice,
     img_backbone=dict(type='Resnet_FPN_Backbone',),
-    # img_memory=dict(type='ImgMemory',),
+    # img_memory=dict(type='MultilevelImgMemory',),
     backbone=dict(type='MinkFFResNet', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
-    # memory=dict(type='MultilevelMemory', in_channels=[64, 64, 128, 256, 512], vmp_layer=(1,2,3,4)),
+    memory=dict(type='MultilevelMemory', in_channels=[32, 64, 128, 256, 512], vmp_layer=(1,2,3,4)),
+    memory_insseg=dict(type='MultilevelMemory_Insseg_New', in_channels=[32, 128, 128, 128, 128, 2], vmp_acc_layer=(0,5), acc_tot=8),
     neck=dict(
         type='NgfcTinySegmentationNeck',
         in_channels=(64, 128, 256, 512),
         out_channels=128),
     head=dict(
-        type='TD3DInstanceHead',
+        type='TD3DInstanceHead_Online',
         in_channels=128,
         n_reg_outs=6,
         n_classes=len(class_names),
@@ -56,20 +57,26 @@ model = dict(
             voxel_size=voxel_size,
             padding=padding,
             min_pts_threshold=10)),
-    train_cfg=dict(num_rois=2),
+    train_cfg=dict(num_rois=2, acc_tot=4),
     test_cfg=dict(
-        nms_pre=100,
+        nms_pre=30,
+        nms_pre_merge=100,
         iou_thr=.4,
         score_thr=.15,
-        binary_score_thr=0.2))
+        binary_score_thr=0.2,
+        delta=0.03))
+# score thr 0.15->0.02
+# nms num 30/100 -> 100/300
 # To avoid gpu memory problems during validation callback, 
 # set score_thr to 0.15 and nms_pre to 100 in configs before training 
 # (then return them to their original values during testing):
 
 optimizer = dict(type='AdamW', lr=0.001, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
-lr_config = dict(policy='step', warmup=None, step=[28, 32])
-runner = dict(type='EpochBasedRunner', max_epochs=33)
+# lr_config = dict(policy='step', warmup=None, step=[28, 32])
+# runner = dict(type='EpochBasedRunner', max_epochs=33)
+lr_config = dict(policy='step', warmup=None, step=[8, 11])
+runner = dict(type='EpochBasedRunner', max_epochs=12)
 custom_hooks = [dict(type='EmptyCacheHook', after_iter=True)]
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=40)
@@ -81,8 +88,6 @@ log_config = dict(
 ])
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = None
-load_from = None
 resume_from = None
 workflow = [('train', 1)]
 
@@ -150,6 +155,8 @@ test_pipeline = [
         type='LoadAdjacentViewsFromFiles',
         coord_type='DEPTH',
         num_frames=-1,
+        max_frames=50,
+        num_sample=20000,
         shift_height=False,
         use_ins_sem=True,
         use_color=True,
@@ -184,9 +191,9 @@ test_pipeline = [
 ]
 
 data = dict(
-    # 6 10
-    samples_per_gpu=6,
-    workers_per_gpu=10,
+    # 12 10
+    samples_per_gpu=4,
+    workers_per_gpu=4,
     train=dict(
         type='RepeatDataset',
         times=10,

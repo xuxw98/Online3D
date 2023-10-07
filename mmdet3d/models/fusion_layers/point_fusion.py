@@ -62,6 +62,7 @@ def point_sample(img_meta,
     # the image is resized by img_scale_factor
     img_coors = pts_2d[:, 0:2] * img_scale_factor  # Nx2
     img_coors -= img_crop_offset
+    # pdb.set_trace()
     # grid sample, the valid grid range should be in [-1,1]
     coor_x, coor_y = torch.split(img_coors, 1, dim=1)  # each is Nx1
 

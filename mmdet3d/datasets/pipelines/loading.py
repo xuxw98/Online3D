@@ -347,7 +347,7 @@ class PointSegClassMappingV2(object):
 
         pts_instance_mask = results['pts_instance_mask']
         instance_ids = np.unique(pts_instance_mask)
-        # assert len(instance_ids) == len(results['gt_bboxes_3d'])
+
         mapping = np.zeros(
             pts_instance_mask.max() + 1, dtype=np.int)
         for i, instance_id in enumerate(instance_ids):
@@ -412,7 +412,7 @@ class MultiViewsPointSegClassMappingV2(object):
         # mask = converted_pts_sem_mask >= 0
         pts_instance_mask = results['pts_instance_mask']
         instance_ids = np.unique(pts_instance_mask)
-        # # assert len(instance_ids) == len(results['gt_bboxes_3d'])
+
         mapping = np.zeros(
              pts_instance_mask.max() + 1, dtype=np.int)
         for i, instance_id in enumerate(instance_ids):
@@ -421,6 +421,7 @@ class MultiViewsPointSegClassMappingV2(object):
 
         results['pts_semantic_mask'] = converted_pts_sem_mask
         results['pts_instance_mask'] = converted_pts_instance_mask
+        
         return results
 
     def __repr__(self):
@@ -590,7 +591,7 @@ class LoadPointsFromFile(object):
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
         results['points'] = points
-
+        # pdb.set_trace()
         return results
 
     def __repr__(self):
@@ -608,6 +609,7 @@ class LoadAdjacentViewsFromFiles(object):
     def __init__(self,
                  coord_type,
                  num_frames=8,
+                 max_frames=-1,
                  use_dim=[0, 1, 2],
                  num_sample=5000,
                  use_ins_sem=False,
@@ -615,9 +617,12 @@ class LoadAdjacentViewsFromFiles(object):
                  interval=2,
                  shift_height=False,
                  use_color=False,
-                 file_client_args=dict(backend='disk')):
+                 use_box=True,
+                 file_client_args=dict(backend='disk'),
+                 sum_num_sample=-1):
         self.shift_height = shift_height
         self.use_color = use_color
+        self.use_box = use_box
         self.use_ins_sem = use_ins_sem
         self.use_amodal_points = use_amodal_points
         if isinstance(use_dim, int):
@@ -629,19 +634,21 @@ class LoadAdjacentViewsFromFiles(object):
         self.num_sample = num_sample
         self.interval = interval
         self.use_dim = use_dim
+        self.max_frames = max_frames
         self.file_client_args = file_client_args.copy()
         self.file_client = None
+        self.sum_num_sample = sum_num_sample
         self.loader = Compose([dict(type = 'LoadImageFromFile')])
 
     # Only for detection
     def _load_points(self, pts_filenames):
         # points: num_frames, 5000, 3+C
         points = [np.load(info['filename']) for info in pts_filenames]
-        points = [point[np.random.choice(point.shape[0],self.num_sample,replace=False)] for point in points]
+        points = [point[np.random.choice(point.shape[0], self.num_sample, replace=False)] for point in points]
         points = np.concatenate(points, axis=0)
         return points
     
-    def _load_amodal_points_ins_sem(self, pts_filenames, instance_filenames, semantic_filenames, annos):
+    def _load_amodal_points_ins_sem(self, pts_filenames, instance_filenames, semantic_filenames):
         # points: num_frames, 5000, 3+C
         points = [np.load(info['filename']) for info in pts_filenames]
         instance = [np.load(info['filename']).astype(np.int64) for info in instance_filenames]
@@ -688,7 +695,10 @@ class LoadAdjacentViewsFromFiles(object):
         instance_new = []
         semantic_new = []
         for i in range(len(points)):
-            choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
+            if self.num_sample < points[i].shape[0]:
+                choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
+            else:
+                choice = np.arange(points[i].shape[0])
             points_new.append(points[i][choice])
             instance_new.append(instance[i][choice])
             semantic_new.append(semantic[i][choice])
@@ -717,13 +727,13 @@ class LoadAdjacentViewsFromFiles(object):
             instance_filenames = results['instance_info']
             semantic_filenames = results['semantic_info']
         poses = results['poses']
-
-        modal_boxes = results['ann_info']['modal_boxes']
-        modal_labels = results['ann_info']['modal_labels']
-        amodal_box_masks = results['ann_info']['amodal_box_masks']
+        if self.use_box:
+            modal_boxes = results['ann_info']['modal_boxes']
+            modal_labels = results['ann_info']['modal_labels']
+            amodal_box_masks = results['ann_info']['amodal_box_masks']
 
         if self.use_amodal_points:
-            amodal_points, amodal_instance, amodal_semantic = self._load_amodal_points_ins_sem(pts_filenames, instance_filenames, semantic_filenames, results['ann_info'])
+            amodal_points, amodal_instance, amodal_semantic = self._load_amodal_points_ins_sem(pts_filenames, instance_filenames, semantic_filenames)
             results['num_amodal_points']  = amodal_points.shape[0]
 
         if self.num_frames > 0:
@@ -736,12 +746,29 @@ class LoadAdjacentViewsFromFiles(object):
                 instance_filenames = [instance_filenames[idx] for idx in keep_view_idx]
                 semantic_filenames = [semantic_filenames[idx] for idx in keep_view_idx]
             poses = [poses[idx] for idx in keep_view_idx]
-            modal_boxes = [modal_boxes[idx] for idx in keep_view_idx]
-            modal_labels = [modal_labels[idx] for idx in keep_view_idx]
-            amodal_box_masks = [amodal_box_masks[idx] for idx in keep_view_idx]
-        results['modal_box'] = modal_boxes
-        results['modal_label'] = modal_labels
-        results['amodal_box_mask'] = amodal_box_masks
+            if self.use_box:
+                modal_boxes = [modal_boxes[idx] for idx in keep_view_idx]
+                modal_labels = [modal_labels[idx] for idx in keep_view_idx]
+                amodal_box_masks = [amodal_box_masks[idx] for idx in keep_view_idx]
+            
+        if self.max_frames > 0 and len(pts_filenames) > self.max_frames:
+            # choose_seq = np.floor(np.arange(0,len(pts_filenames),len(pts_filenames)/self.max_frames)).astype(np.int_)
+            choose_seq = np.floor(np.linspace(0, len(pts_filenames) - 1, num=self.max_frames)).astype(np.int_)
+            pts_filenames = [pts_filenames[idx] for idx in choose_seq]
+            img_filenames = [img_filenames[idx] for idx in choose_seq]
+            if self.use_ins_sem:
+                instance_filenames = [instance_filenames[idx] for idx in choose_seq]
+                semantic_filenames = [semantic_filenames[idx] for idx in choose_seq]
+            poses = [poses[idx] for idx in choose_seq]
+            if self.use_box:
+                modal_boxes = [modal_boxes[idx] for idx in choose_seq]
+                modal_labels = [modal_labels[idx] for idx in choose_seq]
+                amodal_box_masks = [amodal_box_masks[idx] for idx in choose_seq]
+
+        if self.use_box:
+            results['modal_box'] = modal_boxes
+            results['modal_label'] = modal_labels
+            results['amodal_box_mask'] = amodal_box_masks
         results['poses'] = poses
         # From num_framesx5000x(3+C) to -1x(3+C)
         # Use 'num_frames' to transform the point clouds back before fed to Detector.
@@ -784,6 +811,14 @@ class LoadAdjacentViewsFromFiles(object):
         points_class = get_points_type(self.coord_type)
         points = points_class(
             points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
+
+        if self.sum_num_sample > 0 and points.shape[0] > self.sum_num_sample:
+            choice = np.random.choice(points.shape[0], self.sum_num_sample, replace=False)
+            points = points[choice]
+            if self.use_ins_sem:
+                instance = instance[choice]
+                semantic = semantic[choice]
+
         results['points'] = points
         if self.use_ins_sem:
             results['pts_instance_mask'] = instance

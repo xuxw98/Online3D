@@ -202,6 +202,113 @@ class RandomFlip3D(RandomFlip):
 
 
 @PIPELINES.register_module()
+class RandomFlip3DV2(RandomFlip):
+    """Flip the points & bbox.
+
+    If the input dict contains the key "flip", then the flag will be used,
+    otherwise it will be randomly decided by a ratio specified in the init
+    method.
+
+    Args:
+        sync_2d (bool, optional): Whether to apply flip according to the 2D
+            images. If True, it will apply the same flip as that to 2D images.
+            If False, it will decide whether to flip randomly and independently
+            to that of 2D images. Defaults to True.
+        flip_ratio_bev_horizontal (float, optional): The flipping probability
+            in horizontal direction. Defaults to 0.0.
+        flip_ratio_bev_vertical (float, optional): The flipping probability
+            in vertical direction. Defaults to 0.0.
+    """
+
+    def __init__(self,
+                 sync_2d=True,
+                 flip_ratio_bev_horizontal=0.0,
+                 flip_ratio_bev_vertical=0.0,
+                 **kwargs):
+        super(RandomFlip3DV2, self).__init__(
+            flip_ratio=flip_ratio_bev_horizontal, **kwargs)
+        self.sync_2d = sync_2d
+        self.flip_ratio_bev_vertical = flip_ratio_bev_vertical
+        if flip_ratio_bev_horizontal is not None:
+            assert isinstance(
+                flip_ratio_bev_horizontal,
+                (int, float)) and 0 <= flip_ratio_bev_horizontal <= 1
+        if flip_ratio_bev_vertical is not None:
+            assert isinstance(
+                flip_ratio_bev_vertical,
+                (int, float)) and 0 <= flip_ratio_bev_vertical <= 1
+
+    def random_flip_data_3d(self, input_dict, direction='horizontal'):
+        """Flip 3D data randomly.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+            direction (str, optional): Flip direction.
+                Default: 'horizontal'.
+
+        Returns:
+            dict: Flipped results, 'points', 'bbox3d_fields' keys are
+                updated in the result dict.
+        """
+        assert direction in ['horizontal', 'vertical']
+        # for semantic segmentation task, only points will be flipped.
+        input_dict['points'].flip(direction)
+        
+        return
+
+    def __call__(self, input_dict):
+        """Call function to flip points, values in the ``bbox3d_fields`` and
+        also flip 2D image and its annotations.
+
+        Args:
+            input_dict (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Flipped results, 'flip', 'flip_direction',
+                'pcd_horizontal_flip' and 'pcd_vertical_flip' keys are added
+                into result dict.
+        """
+        # flip 2D image and its annotations
+        #print('RandomFlip3DBefore',end=" ")
+        #print(type(input_dict['imgs']))
+        super(RandomFlip3DV2, self).__call__(input_dict)
+        #print('RandomFlip3DMiddle',end=" ")
+        #print(type(input_dict['imgs']))
+        if self.sync_2d:
+            input_dict['pcd_horizontal_flip'] = input_dict['flip']
+            input_dict['pcd_vertical_flip'] = False
+        else:
+            if 'pcd_horizontal_flip' not in input_dict:
+                flip_horizontal = True if np.random.rand(
+                ) < self.flip_ratio else False
+                input_dict['pcd_horizontal_flip'] = flip_horizontal
+            if 'pcd_vertical_flip' not in input_dict:
+                flip_vertical = True if np.random.rand(
+                ) < self.flip_ratio_bev_vertical else False
+                input_dict['pcd_vertical_flip'] = flip_vertical
+
+        if 'transformation_3d_flow' not in input_dict:
+            input_dict['transformation_3d_flow'] = []
+
+        if input_dict['pcd_horizontal_flip']:
+            self.random_flip_data_3d(input_dict, 'horizontal')
+            input_dict['transformation_3d_flow'].extend(['HF'])
+        if input_dict['pcd_vertical_flip']:
+            self.random_flip_data_3d(input_dict, 'vertical')
+            input_dict['transformation_3d_flow'].extend(['VF'])
+        #print('RandomFlip3DAfter',end=" ")
+        #print(type(input_dict['imgs']))
+        return input_dict
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(sync_2d={self.sync_2d},'
+        repr_str += f' flip_ratio_bev_vertical={self.flip_ratio_bev_vertical})'
+        return repr_str
+
+
+@PIPELINES.register_module()
 class MultiViewWrapper(object):
     """Wrap transformation from single-view into multi-view.
 
@@ -2234,13 +2341,13 @@ class MultiViewsBboxRecalculation(object):
         # pts_instance_mask[pts_instance_mask == 0] = -1
         if torch.all(pts_instance_mask==-1):
             input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5))
-            input_dict['gt_labels_3d'] = np.zeros(1).astype('int64')
+            input_dict['gt_labels_3d'] = np.zeros(1).astype('int32')
             gt_modal_bboxes = []
             gt_modal_labels = []
             gt_amodal_box_mask = []
             for i in range(input_dict['num_frames']):
                 gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5)))
-                gt_modal_labels.append(np.zeros(1).astype('int64'))
+                gt_modal_labels.append(np.zeros(1).astype('int32'))
                 gt_amodal_box_mask.append(np.ones(scene_bboxes.shape[0]).astype(np.bool_))
             input_dict['modal_box'] = gt_modal_bboxes
             input_dict['modal_label'] = gt_modal_labels
@@ -2296,12 +2403,11 @@ class MultiViewsBboxRecalculation(object):
         pts_instance_mask = input_dict['pts_instance_mask'][input_dict['num_amodal_points']:]
         pts_semantic_mask = input_dict['pts_semantic_mask'][input_dict['num_amodal_points']:]
         input_dict['points'] = points
-        input_dict['pts_instance_mask'] = pts_instance_mask.reshape(input_dict['num_frames'], -1)
-        input_dict['pts_semantic_mask'] = pts_semantic_mask.reshape(input_dict['num_frames'], -1)
+        input_dict['pts_instance_mask'] = pts_instance_mask.reshape(input_dict['num_frames'], -1).copy()
+        input_dict['pts_semantic_mask'] = pts_semantic_mask.reshape(input_dict['num_frames'], -1).copy()
         points = points.tensor.reshape(input_dict['num_frames'], -1, dims)
         pts_instance_mask_all = pts_instance_mask.reshape(input_dict['num_frames'], -1)
         pts_semantic_mask_all = pts_semantic_mask.reshape(input_dict['num_frames'], -1)
-
         gt_modal_bboxes = []
         gt_modal_labels = []
         gt_amodal_box_mask = []
@@ -2322,16 +2428,13 @@ class MultiViewsBboxRecalculation(object):
                 minus_one = False
                 if np.any(pts_instance_mask==-1):
                     minus_one = True
-
                 instance_unique = np.unique(pts_instance_mask)
                 instance_convert = {instance_unique[i]: i for i in range(instance_unique.shape[0])}
                 for j in range(pts_instance_mask.shape[0]):
                     pts_instance_mask[j] = instance_convert[pts_instance_mask[j]]
                 pts_instance_mask = torch.tensor(pts_instance_mask).to(torch.int64)
-                
                 if minus_one:
                     pts_instance_mask = pts_instance_mask - 1
-
                 # np unique
 
                 if torch.sum(pts_instance_mask == -1) != 0:
@@ -2382,13 +2485,12 @@ class MultiViewsBboxRecalculation(object):
             else:
                 # to make sure the assert , u can use one True instead
                 gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5)))
-                gt_modal_labels.append(np.zeros(1).astype('int64'))
+                gt_modal_labels.append(np.zeros(1).astype('int32'))
                 gt_amodal_box_mask.append(np.zeros(scene_bboxes.shape[0]).astype(np.bool_))
 
         input_dict['modal_box'] = gt_modal_bboxes
         input_dict['modal_label'] = gt_modal_labels
         input_dict['amodal_box_mask'] = gt_amodal_box_mask
-
         return input_dict
 
 

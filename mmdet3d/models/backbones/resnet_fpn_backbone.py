@@ -124,7 +124,7 @@ class Resnet_FPN_Backbone(BaseModule):
     #     if hasattr(self, 'img_memory'):
     #         self.img_memory.reset()
 
-    def forward(self, x):
+    def forward(self, x, memory=None):
         """Forward pass of ResNet.
 
         Args:
@@ -133,8 +133,10 @@ class Resnet_FPN_Backbone(BaseModule):
         Returns:
             list[ME.SparseTensor]: Output sparse tensors.
         """
-        x = self.backbone(x)
+        x = self.backbone(x, memory)
         # if hasattr(self, 'img_memory'):
         #     x['p2'] = self.img_memory(x['p2'])
         return x
+    
+
     

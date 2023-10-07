@@ -16,7 +16,7 @@ from .transforms_3d import (AffineResize, BackgroundPointsFilter,
                             MultiViewWrapper, ObjectNameFilter, ObjectNoise,
                             ObjectRangeFilter, ObjectSample, PointSample, MultiViewsPointSample,
                             PointShuffle, PointsRangeFilter,
-                            RandomDropPointsColor, RandomFlip3D,
+                            RandomDropPointsColor, RandomFlip3D, RandomFlip3DV2,
                             RandomJitterPoints, RandomRotate, RandomShiftScale,
                             RangeLimitedRandomCrop, VoxelBasedPointSampler,
                             BboxRecalculation, MultiViewsBboxRecalculation, 
@@ -24,7 +24,7 @@ from .transforms_3d import (AffineResize, BackgroundPointsFilter,
 from .mv_augment import MultiImgsAug
 
 __all__ = [
-    'ObjectSample', 'RandomFlip3D', 'ObjectNoise', 'GlobalRotScaleTrans',
+    'ObjectSample', 'RandomFlip3D', 'RandomFlip3DV2', 'ObjectNoise', 'GlobalRotScaleTrans',
     'PointShuffle', 'ObjectRangeFilter', 'PointsRangeFilter', 'Collect3D',
     'Compose', 'LoadMultiViewImageFromFiles', 'LoadPointsFromFile',
     'DefaultFormatBundle', 'DefaultFormatBundle3D', 'MultiViewFormatBundle3D', 'DataBaseSampler',

@@ -9,7 +9,7 @@ model = dict(
     num_slice=num_slice,
     len_slice=len_slice,
     img_backbone=dict(type='Resnet_FPN_Backbone',),
-    img_memory=dict(type='ImgMemory', with_depth=True),
+    img_memory=dict(type='MultilevelImgMemory'),
     backbone=dict(type='MEFFResNet3D', in_channels=3, depth=34),
     memory=dict(type='MultilevelMemory', in_channels=[64, 128, 256, 512]),
     neck_with_head=dict(

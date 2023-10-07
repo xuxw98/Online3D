@@ -113,6 +113,7 @@ class MultilevelMemory(BaseModule):
         """
         if index in self.vmp_layer:
             # VMP
+            
             tensor_stride = current_feat.tensor_stride
             accumulated_feat = ME.TensorField(
                 features=torch.cat([current_feat.features, accumulated_feat.features], dim=0),
@@ -185,9 +186,291 @@ class MultilevelMemory(BaseModule):
                     branch = self.conv_convert[i](branch)
                     x[i] = branch + x[i]
                     x[i] = self.relu(x[i])
+                    # x[i] = ME.SparseTensor(
+                    #     coordinate_map_key=accumulated_feats[i].coordinate_map_key,
+                    #     features=x[i].features_at_coordinates(accumulated_feats[i].coordinates.float()),
+                    #     tensor_stride=accumulated_feats[i].tensor_stride,
+                    #     coordinate_manager=accumulated_feats[i].coordinate_manager)
             self.accumulated_feats = accumulated_feats
             return x
         else:
             tuple_feats = [self.accumulate(self.accumulated_feats[i], x[i], i) for i in range(len(x))]
             self.accumulated_feats = [tuple_feats[i][0] for i in range(len(x))]
             return [tuple_feats[i][1] for i in range(len(x))]
+
+
+# @NECKS.register_module()
+# class MultilevelMemory_Insseg(BaseModule):
+#     def __init__(self, in_channels=[32, 64, 128, 256, 512, 2], vmp_acc_layer=(0,5)):
+#         super(MultilevelMemory_Insseg, self).__init__()
+#         self.vmp_acc_layer = list(vmp_acc_layer)
+#         self.accumulated_feats = None
+    
+#     def reset(self):
+#         del self.accumulated_feats
+#         torch.cuda.empty_cache()
+#         self.accumulated_feats = None
+    
+#     def accumulate(self, accumulated_feat, current_feat, index):
+#         """Accumulate features for a single stage.
+
+#         Args:
+#             accumulated_feat (ME.SparseTensor)
+#             current_feat (ME.SparseTensor)
+
+#         Returns:
+#             ME.SparseTensor: refined accumulated features
+#             ME.SparseTensor: current features after accumulation
+#         """
+#         # in fact
+#         # self.vmp_layer must cover self.conv_layer
+#         if index in self.vmp_acc_layer:
+#             # VMP
+#             tensor_stride = current_feat.tensor_stride
+#             accumulated_feat = ME.TensorField(
+#                 features=torch.cat([current_feat.features, accumulated_feat.features], dim=0),
+#                 coordinates=torch.cat([current_feat.coordinates, accumulated_feat.coordinates], dim=0),
+#                 quantization_mode=ME.SparseTensorQuantizationMode.MAX_POOL
+#             ).sparse()
+#             accumulated_feat = ME.SparseTensor(
+#                 coordinates=accumulated_feat.coordinates,
+#                 features=accumulated_feat.features,
+#                 tensor_stride=tensor_stride,
+#                 coordinate_manager=accumulated_feat.coordinate_manager
+#             )
+#             current_feat = ME.SparseTensor(
+#                 coordinates=current_feat.coordinates,
+#                 features=accumulated_feat.features_at_coordinates(current_feat.coordinates.float()),
+#                 tensor_stride=tensor_stride,
+#                 coordinate_manager=current_feat.coordinate_manager
+#             )
+
+#         return accumulated_feat, current_feat
+    
+#     def forward(self, x):
+#         if self.accumulated_feats is None:
+#             self.accumulated_feats = x
+#             ret_list = [(self.accumulated_feats[i] if i in self.vmp_acc_layer else x[i]) for i in range(len(x))]
+#             return ret_list
+#         else:
+#             tuple_feats = [self.accumulate(self.accumulated_feats[i], x[i], i) for i in range(len(x))]
+#             self.accumulated_feats = [tuple_feats[i][0] for i in range(len(x))]
+#             ret_list = [(tuple_feats[i][0] if i in self.vmp_acc_layer else tuple_feats[i][1]) for i in range(len(x))]
+#             return ret_list
+        
+
+
+
+@NECKS.register_module()
+class MultilevelMemory_Insseg(BaseModule):
+    def __init__(self, in_channels=[32, 64, 128, 256, 512, 2], vmp_acc_layer=(0,5), acc_tot=2):
+        super(MultilevelMemory_Insseg, self).__init__()
+        self.vmp_acc_layer = list(vmp_acc_layer)
+        self.accumulated_feats = []
+        for i in range(len(in_channels)):
+            self.accumulated_feats.append([])
+        self.acc_cnt = 0
+        self.acc_tot = acc_tot
+        self.in_channels = in_channels
+    
+    def reset(self):
+        del self.accumulated_feats
+        torch.cuda.empty_cache()
+        self.accumulated_feats = []
+        for i in range(len(self.in_channels)):
+            self.accumulated_feats.append([])
+        self.acc_cnt=0
+    
+    def accumulate(self, accumulated_feat, current_feat, index):
+        """Accumulate features for a single stage.
+
+        Args:
+            accumulated_feat (ME.SparseTensor)
+            current_feat (ME.SparseTensor)
+
+        Returns:
+            ME.SparseTensor: refined accumulated features
+            ME.SparseTensor: current features after accumulation
+        """
+        # in fact
+        # self.vmp_layer must cover self.conv_layer
+        if index in self.vmp_acc_layer:
+            # VMP
+            tensor_stride = current_feat.tensor_stride
+            features_all = []
+            coordinates_all = []
+            for j in range(len(accumulated_feat)):
+                features_all.append(accumulated_feat[j].features)
+                coordinates_all.append(accumulated_feat[j].coordinates)
+            features_all.append(current_feat.features)
+            coordinates_all.append(current_feat.coordinates)
+            accumulated_feat = ME.TensorField(
+                features=torch.cat(features_all, dim=0),
+                coordinates=torch.cat(coordinates_all, dim=0),
+                quantization_mode=ME.SparseTensorQuantizationMode.MAX_POOL
+            ).sparse()
+            accumulated_feat = ME.SparseTensor(
+                coordinates=accumulated_feat.coordinates,
+                features=accumulated_feat.features,
+                tensor_stride=tensor_stride,
+                coordinate_manager=accumulated_feat.coordinate_manager
+            )
+            current_feat = ME.SparseTensor(
+                coordinates=current_feat.coordinates,
+                features=accumulated_feat.features_at_coordinates(current_feat.coordinates.float()),
+                tensor_stride=tensor_stride,
+                coordinate_manager=current_feat.coordinate_manager
+            )
+
+        return accumulated_feat, current_feat
+    
+    def forward(self, x, mode='train'):
+        ret_list = []
+        for i in range(len(x)):
+            if i in self.vmp_acc_layer:
+                if mode == 'train':
+                    if self.acc_cnt < self.acc_tot:
+                        if i == self.vmp_acc_layer[-1]:
+                            self.acc_cnt = self.acc_cnt + 1
+                        if self.acc_cnt == 1: 
+                            ret_list.append(x[i])
+                        else:
+                            ret_list.append(self.accumulate(self.accumulated_feats[i], x[i], i)[0])
+                        self.accumulated_feats[i].append(x[i])
+                    else:
+                        ret_list.append(self.accumulate(self.accumulated_feats[i], x[i], i)[0])
+                        for j in range(len(self.accumulated_feats[i])-1):
+                            self.accumulated_feats[i][j] = self.accumulated_feats[i][j+1]
+                        self.accumulated_feats[i][self.acc_cnt-1] = x[i]
+                else:
+                    if len(self.accumulated_feats[i]) == 0:
+                        self.accumulated_feats[i].append(x[i])
+                        ret_list.append(x[i])
+                    else:
+                        ret_list.append(self.accumulate(self.accumulated_feats[i], x[i], i)[0])
+                        self.accumulated_feats[i].append(x[i])
+
+            else:
+                ret_list.append(x[i])
+        return ret_list
+
+
+        # Add Cnt
+        if self.accumulated_feats is None:
+            self.accumulated_feats = x
+            ret_list = [(self.accumulated_feats[i] if i in self.vmp_acc_layer else x[i]) for i in range(len(x))]
+            return ret_list
+        else:
+            tuple_feats = [self.accumulate(self.accumulated_feats[i], x[i], i) for i in range(len(x))]
+            if mode=='train':
+                self.accumulated_feats = [tuple_feats[i][1] for i in range(len(x))]
+            else:
+                self.accumulated_feats = [tuple_feats[i][0] for i in range(len(x))]
+
+            ret_list = [(tuple_feats[i][0] if i in self.vmp_acc_layer else tuple_feats[i][1]) for i in range(len(x))]
+            return ret_list
+        
+
+
+@NECKS.register_module()
+class MultilevelMemory_Insseg_New(BaseModule):
+    def __init__(self, in_channels=[32, 64, 128, 256, 512, 2], vmp_acc_layer=(0,5), acc_tot=2):
+        super(MultilevelMemory_Insseg_New, self).__init__()
+        self.vmp_acc_layer = list(vmp_acc_layer)
+        self.accumulated_feats = None
+        self.accumulated_ts = None
+        self.acc_tot = acc_tot
+        self.in_channels = in_channels
+        self.pruning = ME.MinkowskiPruning()
+    
+    def reset(self):
+        del self.accumulated_feats
+        torch.cuda.empty_cache()
+        self.accumulated_feats = None
+        self.accumulated_ts = None
+    
+    def accumulate(self, accumulated_feat, accumulated_ts, current_feat, index, mode, ts):
+        """Accumulate features for a single stage.
+
+        Args:
+            accumulated_feat (ME.SparseTensor)
+            current_feat (ME.SparseTensor)
+
+        Returns:
+            ME.SparseTensor: refined accumulated features
+            ME.SparseTensor: current features after accumulation
+        """
+        # in fact
+        # self.vmp_layer must cover self.conv_layer
+        if index in self.vmp_acc_layer:
+            # VMP
+            tensor_stride = current_feat.tensor_stride
+            # ts
+
+            accumulated_feat = ME.TensorField(
+                features=torch.cat([current_feat.features, accumulated_feat.features], dim=0),
+                coordinates=torch.cat([current_feat.coordinates, accumulated_feat.coordinates], dim=0),
+                quantization_mode=ME.SparseTensorQuantizationMode.MAX_POOL
+            ).sparse()
+            accumulated_feat = ME.SparseTensor(
+                coordinates=accumulated_feat.coordinates,
+                features=accumulated_feat.features,
+                tensor_stride=tensor_stride,
+                coordinate_manager=accumulated_feat.coordinate_manager
+            )
+
+            current_ts = ME.SparseTensor(
+                coordinates=current_feat.coordinates,
+                features=(torch.ones(current_feat.coordinates.shape[0],1)*ts).to(current_feat.device),
+                tensor_stride=tensor_stride,
+                coordinate_manager=current_feat.coordinate_manager
+            )
+
+            accumulated_ts = ME.TensorField(
+                features=torch.cat([current_ts.features, accumulated_ts.features], dim=0),
+                coordinates=torch.cat([current_ts.coordinates, accumulated_ts.coordinates], dim=0),
+                quantization_mode=ME.SparseTensorQuantizationMode.MAX_POOL
+            ).sparse()
+            accumulated_ts = ME.SparseTensor(
+                coordinates=accumulated_feat.coordinates,
+                features=accumulated_ts.features_at_coordinates(accumulated_feat.coordinates.float()),
+                tensor_stride=tensor_stride,
+                coordinate_manager=accumulated_feat.coordinate_manager
+            )
+
+            # must minus 1    acc_tot means how many frames vmp
+            if mode == 'train':
+                if (accumulated_ts.features.max() - accumulated_ts.features.min())>=(self.acc_tot-1):
+                    mask = (accumulated_ts.features!=accumulated_ts.features.min()).squeeze(1)
+                    accumulated_ts = self.pruning(accumulated_ts, mask)
+                    accumulated_feat = self.pruning(accumulated_feat, mask)
+               
+            current_feat = ME.SparseTensor(
+                coordinates=current_feat.coordinates,
+                features=accumulated_feat.features_at_coordinates(current_feat.coordinates.float()),
+                tensor_stride=tensor_stride,
+                coordinate_manager=current_feat.coordinate_manager
+            )
+
+        return accumulated_feat, accumulated_ts, current_feat
+    
+    def forward(self, x, mode='train', ts=0):
+
+        # Add Cnt
+        if self.accumulated_feats is None:
+            self.accumulated_feats = x
+            self.accumulated_ts = [ME.SparseTensor(
+                coordinates=x[i].coordinates,
+                features=(torch.ones(x[i].coordinates.shape[0],1)*ts).to(x[i].device),
+                tensor_stride=x[i].tensor_stride,
+                coordinate_manager=x[i].coordinate_manager
+            ) for i in range(len(x))]
+            ret_list = [(self.accumulated_feats[i] if i in self.vmp_acc_layer else x[i]) for i in range(len(x))]
+            return ret_list
+        else:
+            tuple_feats = [self.accumulate(self.accumulated_feats[i], self.accumulated_ts[i], x[i], i, mode, ts) for i in range(len(x))]
+            self.accumulated_feats = [tuple_feats[i][0] for i in range(len(x))]
+            self.accumulated_ts    = [tuple_feats[i][1] for i in range(len(x))]
+
+            ret_list = [(tuple_feats[i][0] if i in self.vmp_acc_layer else tuple_feats[i][2]) for i in range(len(x))]
+            return ret_list

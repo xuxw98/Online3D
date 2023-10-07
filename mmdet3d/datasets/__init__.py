@@ -22,7 +22,7 @@ from .pipelines import (AffineResize, BackgroundPointsFilter, GlobalAlignment,
                         VoxelBasedPointSampler)
 # yapf: enable
 from .s3dis_dataset import S3DISDataset, S3DISSegDataset
-from .scannet_dataset import (ScanNetDataset, ScanNetSegDataset, ScanNetSVDataset, ScanNetMVDataset)
+from .scannet_dataset import (ScanNetDataset, ScanNetSegDataset, ScanNetSVDataset, ScanNetMVDataset, ScanNetSVSegDataset, ScanNetMVSegDataset)
 from .scannet_instance_seg_dataset import (ScanNetInstanceSegDataset, ScanNetInstanceSegV2Dataset,
                                            ScanNetSVInstanceSegV2Dataset, ScanNetMVInstanceSegV2Dataset)
 from .semantickitti_dataset import SemanticKITTIDataset
@@ -46,5 +46,5 @@ __all__ = [
     'RandomShiftScale', 'LoadPointsFromDict', 'PIPELINES',
     'RangeLimitedRandomCrop', 'RandomRotate', 'MultiViewWrapper',
     'ScanNetInstanceSegV2Dataset', 'ScanNetSVDataset','ScanNetSVInstanceSegV2Dataset',
-    'ScanNetMVInstanceSegV2Dataset', 'ScanNetMVDataset'
+    'ScanNetMVInstanceSegV2Dataset', 'ScanNetMVDataset', 'ScanNetSVSegDataset','ScanNetMVSegDataset'
 ]

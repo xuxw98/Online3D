@@ -926,7 +926,7 @@ class FPN(Backbone):
     def padding_constraints(self):
         return {"square_size": self._square_pad}
 
-    def forward(self, x, img_memory=None):
+    def forward(self, x, memory=None):
         """
         Args:
             input (dict[str->Tensor]): mapping feature map name (e.g., "res5") to
@@ -939,7 +939,10 @@ class FPN(Backbone):
                 paper convention: "p<stage>", where stage has stride = 2 ** stage e.g.,
                 ["p2", "p3", ..., "p6"].
         """
-        bottom_up_features = self.bottom_up(x)
+        with torch.no_grad():
+            bottom_up_features = self.bottom_up(x)
+        if memory is not None:
+            bottom_up_features = memory(bottom_up_features)
         results = []
         prev_features = self.lateral_convs[0](bottom_up_features[self.in_features[-1]])
         results.append(self.output_convs[0](prev_features))

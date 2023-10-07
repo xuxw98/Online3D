@@ -8,6 +8,7 @@ from mmseg.core import add_prefix
 from ..builder import (SEGMENTORS, build_backbone, build_head, build_loss,
                        build_neck)
 from .base import Base3DSegmentor
+import pdb
 
 
 @SEGMENTORS.register_module()
@@ -261,6 +262,7 @@ class EncoderDecoder3D(Base3DSegmentor):
         num_grid_y = int(
             torch.ceil((coord_max[1] - coord_min[1] - block_size) /
                        stride).item() + 1)
+        num_grid_x = max(1, num_grid_x); num_grid_y = max(1, num_grid_y)
 
         patch_points, patch_idxs = [], []
         for idx_y in range(num_grid_y):
