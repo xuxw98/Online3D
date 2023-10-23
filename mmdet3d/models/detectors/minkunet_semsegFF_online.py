@@ -195,7 +195,7 @@ class MinkUnetSemsegFF_Online(Base3DDetector):
             timestamps.append(len(points[0]))
 
         # Process
-        bbox_results = [[]]
+        semseg_results = []
         depth2img = img_metas[0]['depth2img']
 
         for i in range(len(timestamps)):
@@ -217,7 +217,10 @@ class MinkUnetSemsegFF_Online(Base3DDetector):
                 sem_result.append(preds)
                 if j == ts_end-1:
                     sem_preds = torch.cat(sem_result, dim=0) 
-                    results = [dict(semantic_mask=sem_preds.cpu())]
+                    semseg_results.append(sem_preds.cpu())
+
+
+        results = [dict(semantic_mask=torch.cat(semseg_results,dim=0))]    
         return results
 
     def aug_test(self, points, img_metas, **kwargs):

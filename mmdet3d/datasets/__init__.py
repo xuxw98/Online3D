@@ -25,6 +25,7 @@ from .s3dis_dataset import S3DISDataset, S3DISSegDataset
 from .scannet_dataset import (ScanNetDataset, ScanNetSegDataset, ScanNetSVDataset, ScanNetMVDataset, ScanNetSVSegDataset, ScanNetMVSegDataset)
 from .scannet_instance_seg_dataset import (ScanNetInstanceSegDataset, ScanNetInstanceSegV2Dataset,
                                            ScanNetSVInstanceSegV2Dataset, ScanNetMVInstanceSegV2Dataset)
+from .scenenn_dataset import SceneNNMVSegDataset
 from .semantickitti_dataset import SemanticKITTIDataset
 from .sunrgbd_dataset import SUNRGBDDataset
 from .utils import get_loading_pipeline
@@ -46,5 +47,6 @@ __all__ = [
     'RandomShiftScale', 'LoadPointsFromDict', 'PIPELINES',
     'RangeLimitedRandomCrop', 'RandomRotate', 'MultiViewWrapper',
     'ScanNetInstanceSegV2Dataset', 'ScanNetSVDataset','ScanNetSVInstanceSegV2Dataset',
-    'ScanNetMVInstanceSegV2Dataset', 'ScanNetMVDataset', 'ScanNetSVSegDataset','ScanNetMVSegDataset'
+    'ScanNetMVInstanceSegV2Dataset', 'ScanNetMVDataset', 'ScanNetSVSegDataset','ScanNetMVSegDataset',
+    'SceneNNMVSegDataset'
 ]

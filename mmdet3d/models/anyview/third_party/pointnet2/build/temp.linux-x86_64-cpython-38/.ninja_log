@@ -1,0 +1,19 @@
+# ninja log v5
+3	11733	1697422469467679760	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/group_points_gpu.o	e6797b3475231ff1
+1	12029	1697422469763679414	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/ball_query_gpu.o	52a5be71043f78e5
+4	12201	1697422469935679213	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/interpolate_gpu.o	3e02abd1fe1422ef
+5	12761	1697422470495678561	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/sampling_gpu.o	4331607fa482645c
+2	15140	1697422472875675802	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/bindings.o	6717eb5ab9dafa4c
+5	15575	1697422473299675313	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/sampling.o	e570b0d8ca24826e
+1	15755	1697422473479675106	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/ball_query.o	e9f41d43577cd51b
+2	15808	1697422473535675041	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/group_points.o	19c5ed7e74b530bb
+3	15900	1697422473627674935	/home/ubuntu/xxw/AnyView/3detr/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/interpolate.o	6e92a8b2a32bb260
+0	11692	1697424083939759212	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/ball_query_gpu.o	d8ae7ae0f38cd33b
+2	12038	1697424084287760059	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/group_points_gpu.o	6146cc3dcb35a101
+3	12063	1697424084315760127	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/interpolate_gpu.o	dfff811dfbb5c581
+4	12279	1697424084531760653	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/sampling_gpu.o	71572dbefa7cb71d
+2	14095	1697424086339765062	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/interpolate.o	cbe0e39a0fb9b54a
+1	14103	1697424086355765101	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/bindings.o	f68c121fb2ecb340
+1	14760	1697424087011766703	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/group_points.o	aa402dfd42718e82
+3	14912	1697424087151767045	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/sampling.o	98473134ef7fd0ac
+0	14986	1697424087227767231	/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/ball_query.o	2fb3fb89ab2deb94

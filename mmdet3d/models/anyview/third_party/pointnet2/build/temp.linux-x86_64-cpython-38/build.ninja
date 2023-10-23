@@ -1,0 +1,36 @@
+ninja_required_version = 1.3
+cxx = c++
+nvcc = /usr/local/cuda-11.7/bin/nvcc
+
+cflags = -pthread -B /home/ubuntu/anaconda3/envs/mmdet3d/compiler_compat -Wl,--sysroot=/ -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes -fPIC -I/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/include -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include/torch/csrc/api/include -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include/TH -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include/THC -I/usr/local/cuda-11.7/include -I/home/ubuntu/anaconda3/envs/mmdet3d/include/python3.8 -c
+post_cflags = -O2 -I_ext_src/include -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1013"' -DTORCH_EXTENSION_NAME=_ext -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++14
+cuda_cflags = -I/home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/include -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include/torch/csrc/api/include -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include/TH -I/home/ubuntu/anaconda3/envs/mmdet3d/lib/python3.8/site-packages/torch/include/THC -I/usr/local/cuda-11.7/include -I/home/ubuntu/anaconda3/envs/mmdet3d/include/python3.8 -c
+cuda_post_cflags = -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options ''"'"'-fPIC'"'"'' -O2 -I_ext_src/include -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1013"' -DTORCH_EXTENSION_NAME=_ext -D_GLIBCXX_USE_CXX11_ABI=0 -gencode=arch=compute_86,code=compute_86 -gencode=arch=compute_86,code=sm_86 -std=c++14
+ldflags = 
+
+rule compile
+  command = $cxx -MMD -MF $out.d $cflags -c $in -o $out $post_cflags
+  depfile = $out.d
+  deps = gcc
+
+rule cuda_compile
+  depfile = $out.d
+  deps = gcc
+  command = $nvcc  $cuda_cflags -c $in -o $out $cuda_post_cflags
+
+
+
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/ball_query.o: compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/ball_query.cpp
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/ball_query_gpu.o: cuda_compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/ball_query_gpu.cu
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/bindings.o: compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/bindings.cpp
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/group_points.o: compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/group_points.cpp
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/group_points_gpu.o: cuda_compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/group_points_gpu.cu
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/interpolate.o: compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/interpolate.cpp
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/interpolate_gpu.o: cuda_compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/interpolate_gpu.cu
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/sampling.o: compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/sampling.cpp
+build /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/build/temp.linux-x86_64-cpython-38/_ext_src/src/sampling_gpu.o: cuda_compile /home/ubuntu/xxw/Online3D/Online3D/mmdet3d/models/anyview/third_party/pointnet2/_ext_src/src/sampling_gpu.cu
+
+
+
+
+

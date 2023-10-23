@@ -306,11 +306,12 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
     - gt_labels: (1)to tensor, (2)to DataContainer
     """
 
-    def __init__(self, class_names, with_gt=True, with_label=True):
+    def __init__(self, class_names, with_gt=True, with_label=True, dataset_type='scannet'):
         super(MultiViewFormatBundle3D, self).__init__()
         self.class_names = class_names
         self.with_gt = with_gt
         self.with_label = with_label
+        self.dataset_type = dataset_type
 
     def __call__(self, results):
         """Call function to transform and format common fields in results.
@@ -336,7 +337,17 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
         if 'poses' in results:
             depth2img = []
             unify_dim = (640, 480)
-            intrinsic = adjust_intrinsic(make_intrinsic(577.870605,577.870605,319.5,239.5), [640,480], unify_dim)
+            if self.dataset_type == 'scannet':
+                fx = 577.870605
+                fy = 577.870605
+                cx = 319.5
+                cy = 239.5
+            else:
+                fx = 544.47329
+                fy = 544.47329
+                cx = 320
+                cy = 240
+            intrinsic = adjust_intrinsic(make_intrinsic(fx, fy, cx, cy), [640,480], unify_dim)
             for pose in results['poses']:
                 depth2img.append(
                     intrinsic @ np.linalg.inv(pose))

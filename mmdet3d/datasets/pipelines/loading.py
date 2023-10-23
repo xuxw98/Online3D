@@ -6,6 +6,8 @@ from mmdet3d.core.points import BasePoints, get_points_type
 from mmdet.datasets.pipelines import Compose, LoadAnnotations, LoadImageFromFile
 from ..builder import PIPELINES
 import pdb
+from skimage import io
+import os
 
 
 @PIPELINES.register_module()
@@ -619,7 +621,8 @@ class LoadAdjacentViewsFromFiles(object):
                  use_color=False,
                  use_box=True,
                  file_client_args=dict(backend='disk'),
-                 sum_num_sample=-1):
+                 sum_num_sample=-1,
+                 scenenn_rot=False):
         self.shift_height = shift_height
         self.use_color = use_color
         self.use_box = use_box
@@ -639,6 +642,14 @@ class LoadAdjacentViewsFromFiles(object):
         self.file_client = None
         self.sum_num_sample = sum_num_sample
         self.loader = Compose([dict(type = 'LoadImageFromFile')])
+        self.scenenn_rot = scenenn_rot
+        self.rotation_matrix = np.array([
+                [1, 0, 0],
+                [0, 0, -1],
+                [0, 1, 0],
+            ])
+        self.transform_matrix = np.eye(4)
+        self.transform_matrix[:3,:3] = self.rotation_matrix
 
     # Only for detection
     def _load_points(self, pts_filenames):
@@ -685,10 +696,18 @@ class LoadAdjacentViewsFromFiles(object):
 
         return points, instance, semantic      
 
-    def _load_points_ins_sem(self, pts_filenames, instance_filenames, semantic_filenames):
+    def _load_points_sem_ins(self, pts_filenames, semantic_filenames, instance_filenames=None):
         # points: num_frames, 5000, 3+C
-        points = [np.load(info['filename']) for info in pts_filenames]
-        instance = [np.load(info['filename']).astype(np.int64) for info in instance_filenames]
+        if self.scenenn_rot:
+            points = []
+            for info in pts_filenames:
+                point = np.load(info['filename'])
+                point[:,:3] = np.dot(self.rotation_matrix, point[:,:3].T).T
+                points.append(point)
+        else:
+            points = [np.load(info['filename']) for info in pts_filenames]
+        if instance_filenames != None:
+            instance = [np.load(info['filename']).astype(np.int64) for info in instance_filenames]
         semantic = [np.load(info['filename']).astype(np.int64) for info in semantic_filenames]
 
         points_new = []
@@ -700,14 +719,19 @@ class LoadAdjacentViewsFromFiles(object):
             else:
                 choice = np.arange(points[i].shape[0])
             points_new.append(points[i][choice])
-            instance_new.append(instance[i][choice])
+            if instance_filenames != None:
+                instance_new.append(instance[i][choice])
             semantic_new.append(semantic[i][choice])
 
         points = np.concatenate(points_new, axis=0)
-        instance = np.concatenate(instance_new, axis=0)
+        if instance_filenames != None:
+            instance = np.concatenate(instance_new, axis=0)
         semantic = np.concatenate(semantic_new, axis=0)
         
-        return points, instance, semantic
+        if instance_filenames != None:
+            return points, semantic, instance
+        else:
+            return points, semantic
 
     def __call__(self, results):
         """Call function to load points data from file.
@@ -724,7 +748,8 @@ class LoadAdjacentViewsFromFiles(object):
         pts_filenames = results['pts_info']
         img_filenames = results['img_info']
         if self.use_ins_sem:
-            instance_filenames = results['instance_info']
+            if 'instance_info' in results:
+                instance_filenames = results['instance_info']
             semantic_filenames = results['semantic_info']
         poses = results['poses']
         if self.use_box:
@@ -757,7 +782,8 @@ class LoadAdjacentViewsFromFiles(object):
             pts_filenames = [pts_filenames[idx] for idx in choose_seq]
             img_filenames = [img_filenames[idx] for idx in choose_seq]
             if self.use_ins_sem:
-                instance_filenames = [instance_filenames[idx] for idx in choose_seq]
+                if 'instance_info' in results:
+                    instance_filenames = [instance_filenames[idx] for idx in choose_seq]
                 semantic_filenames = [semantic_filenames[idx] for idx in choose_seq]
             poses = [poses[idx] for idx in choose_seq]
             if self.use_box:
@@ -769,13 +795,20 @@ class LoadAdjacentViewsFromFiles(object):
             results['modal_box'] = modal_boxes
             results['modal_label'] = modal_labels
             results['amodal_box_mask'] = amodal_box_masks
-        results['poses'] = poses
+        if self.scenenn_rot:
+            results['poses'] = [(self.transform_matrix @ pose) for pose in poses]
+        else:
+            results['poses'] = poses
         # From num_framesx5000x(3+C) to -1x(3+C)
         # Use 'num_frames' to transform the point clouds back before fed to Detector.
         if self.use_ins_sem:
-            points, instance, semantic = self._load_points_ins_sem(pts_filenames, instance_filenames, semantic_filenames)
+            if 'instance_info' in results:
+                points, semantic, instance = self._load_points_sem_ins(pts_filenames, semantic_filenames, instance_filenames)
+            else:
+                points, semantic = self._load_points_sem_ins(pts_filenames, semantic_filenames)
         else:
             points = self._load_points(pts_filenames)
+
         results['num_frames'] = self.num_frames
         results['num_sample'] = self.num_sample
         # view merge and process together
@@ -783,7 +816,8 @@ class LoadAdjacentViewsFromFiles(object):
         if self.use_amodal_points:
             points = np.concatenate([amodal_points, points], axis=0)
             if self.use_ins_sem:
-                instance = np.concatenate([amodal_instance, instance], axis=0)
+                if 'instance_info' in results:
+                    instance = np.concatenate([amodal_instance, instance], axis=0)
                 semantic = np.concatenate([amodal_semantic, semantic], axis=0)
 
         points = points[:, self.use_dim]
@@ -816,12 +850,227 @@ class LoadAdjacentViewsFromFiles(object):
             choice = np.random.choice(points.shape[0], self.sum_num_sample, replace=False)
             points = points[choice]
             if self.use_ins_sem:
-                instance = instance[choice]
+                if 'instance_info' in results:
+                    instance = instance[choice]
                 semantic = semantic[choice]
 
         results['points'] = points
         if self.use_ins_sem:
-            results['pts_instance_mask'] = instance
+            if 'instance_info' in results:
+                results['pts_instance_mask'] = instance
+            results['pts_semantic_mask'] = semantic
+
+        imgs = []
+        for i in range(len(pts_filenames)):
+            _results = dict()
+            _results['img_prefix'] = None
+            _results['img_info'] = img_filenames[i]
+            _results = self.loader(_results)
+            # list
+            imgs.append(_results['img'])
+        for key in _results.keys():
+            if key not in ['img', 'img_prefix', 'img_info']:
+                results[key] = _results[key]
+        results['imgs'] = imgs
+        return results
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__ + '('
+        repr_str += f'shift_height={self.shift_height}, '
+        repr_str += f'use_color={self.use_color}, '
+        repr_str += f'file_client_args={self.file_client_args}, '
+        repr_str += f'use_dim={self.use_dim})'
+        return repr_str
+
+
+@PIPELINES.register_module()
+class LoadAdjacentViewsFromFiles_FSA(object):
+    def __init__(self,
+                 coord_type,
+                 num_frames=8,
+                 max_frames=-1,
+                 use_dim=[0, 1, 2],
+                 num_sample=5000,
+                 use_ins_sem=False,
+                 use_amodal_points=False,
+                 interval=2,
+                 shift_height=False,
+                 use_color=False,
+                 use_box=True,
+                 file_client_args=dict(backend='disk'),
+                 sum_num_sample=-1,
+                 scenenn_rot=False):
+        self.shift_height = shift_height
+        self.use_color = use_color
+        self.use_box = use_box
+        self.use_ins_sem = use_ins_sem
+        self.use_amodal_points = use_amodal_points
+        if isinstance(use_dim, int):
+            use_dim = list(range(use_dim))
+        assert coord_type in ['CAMERA', 'LIDAR', 'DEPTH']
+
+        self.coord_type = coord_type
+        self.num_frames = num_frames
+        self.num_sample = num_sample
+        self.interval = interval
+        self.use_dim = use_dim
+        self.max_frames = max_frames
+        self.file_client_args = file_client_args.copy()
+        self.file_client = None
+        self.sum_num_sample = sum_num_sample
+        self.loader = Compose([dict(type = 'LoadImageFromFile')])
+        self.scenenn_rot = scenenn_rot
+        self.rotation_matrix = np.array([
+                [1, 0, 0],
+                [0, 0, -1],
+                [0, 1, 0],
+            ])
+        self.transform_matrix = np.eye(4)
+        self.transform_matrix[:3,:3] = self.rotation_matrix
+
+    def _load_points_sem_ins(self, pts_filenames, semantic_filenames, instance_filenames=None):
+        # points: num_frames, 5000, 3+C
+        if self.scenenn_rot:
+            points = []
+            for info in pts_filenames:
+                point = np.load(info['filename'])
+                point[:,:3] = np.dot(self.rotation_matrix, point[:,:3].T).T
+                points.append(point)
+        else:
+            points = [np.load(info['filename']) for info in pts_filenames]
+        if instance_filenames != None:
+            instance = [np.load(info['filename']).astype(np.int64) for info in instance_filenames]
+        semantic = [np.load(info['filename']).astype(np.int64) for info in semantic_filenames]
+
+        points_new = []
+        instance_new = []
+        semantic_new = []
+        for i in range(len(points)):
+            if self.num_sample < points[i].shape[0]:
+                choice = np.random.choice(points[i].shape[0], self.num_sample, replace=False)
+            else:
+                choice = np.arange(points[i].shape[0])
+            points_new.append(points[i][choice])
+            if instance_filenames != None:
+                instance_new.append(instance[i][choice])
+            semantic_new.append(semantic[i][choice])
+
+        points = np.concatenate(points_new, axis=0)
+        if instance_filenames != None:
+            instance = np.concatenate(instance_new, axis=0)
+        semantic = np.concatenate(semantic_new, axis=0)
+        
+        if instance_filenames != None:
+            return points, semantic, instance
+        else:
+            return points, semantic
+
+    def __call__(self, results):
+        """Call function to load points data from file.
+
+        Args:
+            results (dict): Result dict containing point clouds data.
+
+        Returns:
+            dict: The result dict containing the point clouds data.
+                Added key and value are described below.
+
+                - points (:obj:`BasePoints`): Point clouds data.
+        """
+        pts_filenames = results['pts_info']
+        img_filenames = results['img_info']
+        if self.use_ins_sem:
+            if 'instance_info' in results:
+                instance_filenames = results['instance_info']
+            semantic_filenames = results['semantic_info']
+        poses = results['poses']
+        
+        if self.max_frames > 0 and len(pts_filenames) > self.max_frames:
+            # choose_seq = np.floor(np.arange(0,len(pts_filenames),len(pts_filenames)/self.max_frames)).astype(np.int_)
+            choose_seq = np.floor(np.linspace(0, len(pts_filenames) - 1, num=self.max_frames)).astype(np.int_)
+            pts_filenames = [pts_filenames[idx] for idx in choose_seq]
+            img_filenames = [img_filenames[idx] for idx in choose_seq]
+            if self.use_ins_sem:
+                if 'instance_info' in results:
+                    instance_filenames = [instance_filenames[idx] for idx in choose_seq]
+                semantic_filenames = [semantic_filenames[idx] for idx in choose_seq]
+            poses = [poses[idx] for idx in choose_seq]
+           
+        if self.scenenn_rot:
+            results['poses'] = [(self.transform_matrix @ pose) for pose in poses]
+        else:
+            results['poses'] = poses
+        # From num_framesx5000x(3+C) to -1x(3+C)
+        # Use 'num_frames' to transform the point clouds back before fed to Detector.
+        depth_fsa_list = []
+        img_fsa_list = []
+        for info in img_filenames:
+            img_filename = info['filename']
+            if self.scenenn_rot:
+                spilt = img_filename.split("/",6)
+                depth_filename = os.path.join(spilt[0],spilt[1],spilt[2],spilt[3],'depth','depth'+spilt[-1][5:])
+            else:
+                spilt = img_filename.split("/",6)
+                depth_filename = os.path.join(spilt[0],spilt[1],spilt[2], spilt[3], spilt[4],'depth',spilt[-1][:-3]+'png')            
+            img_fsa = io.imread(img_filename).astype(np.int16)
+            depth_fsa = io.imread(depth_filename).astype(np.int16)/1000
+            
+            # in_dict = {}
+            # in_dict['filename'] = depth_filename
+            # out_dict = {}
+            # out_dict['img_prefix'] = None
+            # out_dict['img_info'] = in_dict
+            # depth = self.loader(out_dict)
+            # depth = depth['img'][:,:,0]
+            # pdb.set_trace()
+            depth_fsa_list.append(depth_fsa)
+            img_fsa_list.append(img_fsa)
+
+        results['depth_fsa'] = depth_fsa_list
+        results['img_fsa'] = img_fsa_list
+
+
+        if 'instance_info' in results:
+            points, semantic, instance = self._load_points_sem_ins(pts_filenames, semantic_filenames, instance_filenames)
+        else:
+            points, semantic = self._load_points_sem_ins(pts_filenames, semantic_filenames)
+
+
+        results['num_frames'] = self.num_frames
+        results['num_sample'] = self.num_sample
+        # view merge and process together
+        # np.stack just add dimension
+        points = points[:, self.use_dim]
+        attribute_dims = None
+
+        if self.shift_height:
+            floor_height = np.percentile(points[:, 2], 0.99)
+            height = points[:, 2] - floor_height
+            points = np.concatenate(
+                [points[:, :3],
+                 np.expand_dims(height, 1), points[:, 3:]], 1)
+            attribute_dims = dict(height=3)
+
+        if self.use_color:
+            assert len(self.use_dim) >= 6
+            if attribute_dims is None:
+                attribute_dims = dict()
+            attribute_dims.update(
+                dict(color=[
+                    points.shape[1] - 3,
+                    points.shape[1] - 2,
+                    points.shape[1] - 1,
+                ]))
+
+        points_class = get_points_type(self.coord_type)
+        points = points_class(
+            points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
+
+        results['points'] = points
+        if self.use_ins_sem:
+            if 'instance_info' in results:
+                results['pts_instance_mask'] = instance
             results['pts_semantic_mask'] = semantic
 
         imgs = []

@@ -838,5 +838,9 @@ class Fcaf3DNeckWithHead_OnlineV3(BaseModule):
         else:
             bbox_all_list = []
             for i in range(len(input_metas)):
-                bbox_all_list.append(self._merge_bbox_single(bboxes_pre[i], bboxes_now[i], input_metas[i]))
+                                # if boxes_now
+                if bboxes_pre[i][1].shape[0] == 0:
+                    bbox_all_list.append(self._single_scene_multiclass_nms(bboxes_now[i][0], bboxes_now[i][1], bboxes_now[i][2], bboxes_now[i][3], bboxes_now[i][4], input_metas[i], get_data=True))
+                else:
+                    bbox_all_list.append(self._merge_bbox_single(bboxes_pre[i], bboxes_now[i], input_metas[i]))
         return bbox_all_list

@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
+import pdb
 
 
 def average_precision(recalls, precisions, mode='area'):
@@ -374,6 +375,7 @@ def multiview_indoor_eval(gt_annos,
         # online evaluation
         for j in range(len(timestamps)):
             ts = timestamps[j]
+            # TODO: unify 2 things
             #! index j
             det_anno = det_anno_all[ts-1]
             for i in range(len(det_anno['labels_3d'])):

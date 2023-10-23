@@ -97,6 +97,7 @@ test_pipeline = [
             dict(type='Collect3D', keys=['points', 'img'])
         ])
 ]
+
 data = dict(
     samples_per_gpu=16,
     workers_per_gpu=8,

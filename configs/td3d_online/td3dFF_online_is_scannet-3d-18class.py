@@ -26,7 +26,7 @@ model = dict(
     # img_memory=dict(type='MultilevelImgMemory',),
     backbone=dict(type='MinkFFResNet', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
     memory=dict(type='MultilevelMemory', in_channels=[32, 64, 128, 256, 512], vmp_layer=(1,2,3,4)),
-    memory_insseg=dict(type='MultilevelMemory_Insseg_New', in_channels=[32, 128, 128, 128, 128, 2], vmp_acc_layer=(0,5), acc_tot=8),
+    memory_insseg=dict(type='MultilevelMemory_Insseg', in_channels=[32, 128, 128, 128, 128, 2], vmp_acc_layer=(0,5), acc_tot=8),
     neck=dict(
         type='NgfcTinySegmentationNeck',
         in_channels=(64, 128, 256, 512),
@@ -73,10 +73,8 @@ model = dict(
 
 optimizer = dict(type='AdamW', lr=0.001, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
-# lr_config = dict(policy='step', warmup=None, step=[28, 32])
-# runner = dict(type='EpochBasedRunner', max_epochs=33)
-lr_config = dict(policy='step', warmup=None, step=[8, 11])
-runner = dict(type='EpochBasedRunner', max_epochs=12)
+lr_config = dict(policy='step', warmup=None, step=[28, 32])
+runner = dict(type='EpochBasedRunner', max_epochs=33)
 custom_hooks = [dict(type='EmptyCacheHook', after_iter=True)]
 
 checkpoint_config = dict(interval=1, max_keep_ckpts=40)

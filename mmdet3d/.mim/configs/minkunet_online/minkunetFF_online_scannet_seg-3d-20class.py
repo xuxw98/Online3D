@@ -160,7 +160,7 @@ eval_pipeline = [
 ]
 
 data = dict(
-    # 16 8
+    # 6 8
     samples_per_gpu=6,
     workers_per_gpu=8,
     train=dict(       

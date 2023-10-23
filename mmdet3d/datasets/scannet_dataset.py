@@ -19,6 +19,17 @@ from .custom_3d_seg import Custom3DSegDataset
 from .pipelines import Compose
 import torch
 import pdb
+import os
+import sys
+import json
+import csv
+try:
+    from plyfile import PlyData, PlyElement
+except:
+    print("Please install the module 'plyfile' for PLY i/o, e.g.")
+    print("pip install plyfile")
+    sys.exit(-1)
+from scipy.spatial import cKDTree
 
 
 @DATASETS.register_module()
@@ -1383,6 +1394,7 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
                  ignore_index=None,
                  voxel_size=.02,
                  use_voxel_eval=False,
+                 use_interpolation=False,
                  **kwargs):
         super().__init__(
             data_root=data_root,
@@ -1411,6 +1423,7 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
 
         self.voxel_size = voxel_size
         self.use_voxel_eval = use_voxel_eval
+        self.use_interpolation = use_interpolation
 
     def get_data_info(self, index):
         """Get data info according to the given index.
@@ -1492,6 +1505,143 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
         self.pre_pipeline(input_dict)
         example = self.pipeline(input_dict)
         return example
+    
+
+    def read_aggregation(self, filename):
+        assert os.path.isfile(filename)
+        object_id_to_segs = {}
+        label_to_segs = {}
+        with open(filename) as f:
+            data = json.load(f)
+            num_objects = len(data['segGroups'])
+            for i in range(num_objects):
+                object_id = data['segGroups'][i]['objectId'] + 1 # instance ids should be 1-indexed
+                label = data['segGroups'][i]['label']
+                segs = data['segGroups'][i]['segments']
+                object_id_to_segs[object_id] = segs
+                if label in label_to_segs:
+                    label_to_segs[label].extend(segs)
+                else:
+                    label_to_segs[label] = segs
+        return object_id_to_segs, label_to_segs
+
+
+    def read_segmentation(self, filename):
+        assert os.path.isfile(filename)
+        seg_to_verts = {}
+        with open(filename) as f:
+            data = json.load(f)
+            num_verts = len(data['segIndices'])
+            for i in range(num_verts):
+                seg_id = data['segIndices'][i]
+                if seg_id in seg_to_verts:
+                    seg_to_verts[seg_id].append(i)
+                else:
+                    seg_to_verts[seg_id] = [i]
+        return seg_to_verts, num_verts
+
+
+    def read_mesh_vertices(self, filename):
+        """ read XYZ RGB for each vertex.
+        Note: RGB values are in 0-255
+        """
+        assert os.path.isfile(filename)
+        with open(filename, 'rb') as f:
+            plydata = PlyData.read(f)
+            num_verts = plydata['vertex'].count
+            vertices = np.zeros(shape=[num_verts, 3], dtype=np.float32)
+            vertices[:,0] = plydata['vertex'].data['x']
+            vertices[:,1] = plydata['vertex'].data['y']
+            vertices[:,2] = plydata['vertex'].data['z']
+        return vertices
+    
+    def represents_int(s):
+        ''' if string s represents an int. '''
+        try: 
+            int(s)
+            return True
+        except ValueError:
+            return False
+    
+    def read_label_mapping(self, filename, label_from='raw_category', label_to='nyu40id'):
+        assert os.path.isfile(filename)
+        mapping = dict()
+        with open(filename) as csvfile:
+            reader = csv.DictReader(csvfile, delimiter='\t')
+            for row in reader:
+                mapping[row[label_from]] = int(row[label_to])
+        tag = False
+        try:
+            int(list(mapping.keys())[0])
+            tag = True
+        except ValueError:
+            tag = False
+        if tag:
+            mapping = {int(k):v for k,v in mapping.items()}
+        return mapping
+
+    def export(self, mesh_file, agg_file, seg_file, meta_file, label_map):
+        mesh_vertices = self.read_mesh_vertices(mesh_file)
+
+        # Load scene axis alignment matrix
+        lines = open(meta_file).readlines()
+        for line in lines:
+            if 'axisAlignment' in line:
+                axis_align_matrix = [float(x) \
+                    for x in line.rstrip().strip('axisAlignment = ').split(' ')]
+                break
+        axis_align_matrix = np.array(axis_align_matrix).reshape((4,4))
+        pts = np.ones((mesh_vertices.shape[0], 4))
+        pts[:,0:3] = mesh_vertices[:,0:3]
+        pts = np.dot(pts, axis_align_matrix.transpose()) # Nx4
+        mesh_vertices[:,0:3] = pts[:,0:3]
+
+        # Load semantic and instance labels
+        object_id_to_segs, label_to_segs = self.read_aggregation(agg_file)
+        seg_to_verts, num_verts = self.read_segmentation(seg_file)
+
+        label_ids = np.zeros(shape=(num_verts), dtype=np.uint32) # 0: unannotated
+        object_id_to_label_id = {}
+        for label, segs in label_to_segs.items():
+            label_id = label_map[label]
+            if label_id in self.cat_ids2class.keys():
+                label_id = self.cat_ids2class[label_id]
+            else:
+                label_id = len(self.cat_ids)
+            for seg in segs:
+                verts = seg_to_verts[seg]
+                label_ids[verts] = label_id
+        
+
+        return mesh_vertices, label_ids, object_id_to_segs, seg_to_verts
+    
+
+
+    def load_rec_points(self):
+        rec_points = []
+        gt_sem_masks = []
+        object_id_to_segs_list = []
+        seg_to_verts_list = []
+        label_map_file = '/home/ubuntu/xxw/Online3D/Online3D/data/scannet-mv1/meta_data/scannetv2-labels.combined.tsv'
+        label_map = self.read_label_mapping(label_map_file,
+            label_from='raw_category', label_to='nyu40id')    
+        for w in range(len(self.data_infos)):
+            scan_name = self.data_infos[w]['point_cloud']['lidar_idx']
+            mesh_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.ply')
+            meta_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.  
+            agg_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '.aggregation.json')
+            seg_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json') 
+            mesh_vertices, gt_sem_mask, object_id_to_segs, seg_to_verts = self.export(mesh_file, agg_file, seg_file, meta_file, label_map)
+            rec_points.append(mesh_vertices)
+            gt_sem_masks.append(gt_sem_mask)
+            object_id_to_segs_list.append(object_id_to_segs)
+            seg_to_verts_list.append(seg_to_verts)
+        return rec_points, gt_sem_masks, object_id_to_segs_list, seg_to_verts_list
+
+    def nearest_neighbor_interpolation(self, tree, target_coords, source_labels):
+        _, nearest_neighbors = tree.query(target_coords[:,:3])
+        interpolated_labels = source_labels[nearest_neighbors]
+        return interpolated_labels
 
     def evaluate(self,
                  results,
@@ -1519,7 +1669,7 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
         Returns:
             dict: Evaluation results.
         """
-        from mmdet3d.core.evaluation import seg_eval
+        from mmdet3d.core.evaluation import multiview_seg_eval
         assert isinstance(
             results, list), f'Expect results to be list, got {type(results)}.'
         assert len(results) > 0, 'Expect length of results > 0.'
@@ -1539,12 +1689,19 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
                 load_annos=True) for i in range(len(self.data_infos))
         ])
         points = [point.reshape(-1,point.shape[-1])[:,:3] for point in points]
-
+        # pdb.set_trace()
         # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis/point_0.npy',points[0])
         # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis/gt_sem_0.npy',gt_sem_masks[0])
         # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis/pred_sem_0.npy',pred_sem_masks[0])
         # pdb.set_trace()
-            
+
+        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/point_0.npy',points[0])
+        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/gt_sem_0.npy',gt_sem_masks[0])
+        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/pred_sem_0.npy',pred_sem_masks[0])
+        # pdb.set_trace()
+        #  
+
+        # self.use_voxel_eval = True
         if self.use_voxel_eval:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -1575,12 +1732,40 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             gt_sem_masks = gt_sem_masks_new
             pred_sem_masks = pred_sem_masks_new
 
-        ret_dict = seg_eval(
+        self.use_interpolation = True
+
+        if self.use_interpolation:
+            rec_points, gt_sem_masks, object_id_to_segs_list, seg_to_verts_list = self.load_rec_points()
+            pred_sem_masks_interpolation = []
+            gt_sem_masks_new = []
+            for point, gt_sem_mask, pred_sem_mask, rec_point, object_id_to_segs, seg_to_verts in zip(points, gt_sem_masks, pred_sem_masks, rec_points, object_id_to_segs_list, seg_to_verts_list):  
+                this_tree = cKDTree(point)
+                this_labels = self.nearest_neighbor_interpolation(this_tree, rec_point, pred_sem_mask)
+
+                for object_id, segs in object_id_to_segs.items():
+                    for seg in segs:
+                        verts = seg_to_verts[seg]
+                        this_labels[verts] = torch.tensor(np.bincount(this_labels[verts].numpy()).argmax())
+
+                sample = np.random.choice(this_labels.shape[0], 100000, replace=True)
+                this_labels = this_labels[sample]
+                gt_sem_mask = gt_sem_mask[sample]
+                pred_sem_masks_interpolation.append(this_labels)
+                gt_sem_masks_new.append(torch.tensor(gt_sem_mask.astype(np.int64)))
+            
+            pred_sem_masks = pred_sem_masks_interpolation
+            gt_sem_masks = gt_sem_masks_new
+        
+        ret_dict = multiview_seg_eval(
             gt_sem_masks,
             pred_sem_masks,
             self.label2cat,
             self.ignore_index,
-            logger=logger)
+            logger=logger,
+            evaluator_mode=self.evaluator_mode,
+            num_slice=self.num_slice,
+            len_slice=self.len_slice,
+            )
 
         if show:
             self.show(results, out_dir, pipeline=pipeline)

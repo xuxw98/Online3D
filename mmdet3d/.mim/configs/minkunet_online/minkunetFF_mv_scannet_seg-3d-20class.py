@@ -1,5 +1,5 @@
 _base_ = [
-    '../_base_/default_runtime.py', '../_base_/schedules/schedule_3x.py'
+    '../_base_/default_runtime.py', '../_base_/schedules/seg_onecycle_250e.py'
 ]
 
 # dataset settings
@@ -35,6 +35,9 @@ model = dict(type='MinkUnetSemseg',
                 5.3954206, 4.6971426
             ],  # should be modified with dataset
             loss_weight=1.0)),
+    evaluator_mode = evaluator_mode,
+    num_slice = num_slice,
+    len_slice = len_slice,
     train_cfg=dict(),
     test_cfg=dict())
 
@@ -158,7 +161,7 @@ data = dict(
     workers_per_gpu=8,
     train=dict(    
         type='RepeatDataset',
-        times=10,
+        times=5,
         dataset=dict(
             type=dataset_type,
             data_root=data_root,
@@ -178,7 +181,7 @@ data = dict(
         evaluator_mode=evaluator_mode,
         num_slice=num_slice,
         len_slice=len_slice,
-        use_voxel_eval=True),
+        use_voxel_eval=False),
     test=dict(
         type=dataset_type,
         data_root=data_root,
@@ -190,7 +193,7 @@ data = dict(
         evaluator_mode=evaluator_mode,
         num_slice=num_slice,
         len_slice=len_slice,
-        use_voxel_eval=True))
+        use_voxel_eval=False))
 
 # data settings
 evaluation = dict(pipeline=eval_pipeline, interval=5)

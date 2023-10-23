@@ -166,6 +166,9 @@ class MinkUnetSemseg(Base3DDetector):
                  backbone,
                  head,
                  voxel_size,
+                 evaluator_mode,
+                 num_slice=1,
+                 len_slice=5,
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=None,
@@ -174,6 +177,9 @@ class MinkUnetSemseg(Base3DDetector):
         self.backbone = build_backbone(backbone)
         self.head = build_head(head)
         self.voxel_size = voxel_size
+        self.evaluator_mode=evaluator_mode
+        self.num_slice=num_slice
+        self.len_slice=len_slice
 
     def init_weights(self, pretrained=None):
         # self.backbone.init_weights()
@@ -232,12 +238,37 @@ class MinkUnetSemseg(Base3DDetector):
         """Test without augmentations.
         """
 
-        points = [point.reshape(-1,6) for point in points]
-        field = self.collate(points, ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
-        x = self.extract_feat(field.sparse(), img_metas)
+        timestamps = []
+        if self.evaluator_mode == 'slice_len_constant':
+            i=1
+            while i*self.len_slice<len(points[0]):
+                timestamps.append(i*self.len_slice)
+                i=i+1
+            timestamps.append(len(points[0]))
+        else:
+            num_slice = min(len(points[0]),self.num_slice)
+            for i in range(1,num_slice):
+                timestamps.append(i*(len(points[0])//num_slice))
+            timestamps.append(len(points[0]))
+
+        # Process
+        semseg_results = []
+
+        for i in range(len(timestamps)):
+            if i == 0:
+                ts_start, ts_end = 0, timestamps[i]
+            else:
+                ts_start, ts_end = timestamps[i-1], timestamps[i]
+            sem_result = []
+
+            points_new = [points[0][ts_start:ts_end,:,:].reshape(-1,points[0].shape[-1])]
+            field = self.collate(points_new, ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+            x = self.extract_feat(field.sparse(), img_metas)
+            
+            preds = self.head.forward_test(x, field, img_metas)
+            semseg_results.append(preds.cpu())
         
-        preds = self.head.forward_test(x, field, img_metas)
-        results = [dict(semantic_mask=preds.cpu())]
+        results = [dict(semantic_mask=torch.cat(semseg_results,dim=0))]       
         return results
 
     def aug_test(self, points, img_metas, **kwargs):

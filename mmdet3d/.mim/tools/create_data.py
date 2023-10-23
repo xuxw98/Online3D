@@ -150,6 +150,20 @@ def sunrgbd_data_prep(root_path, info_prefix, out_dir, workers, num_points):
         workers=workers,
         num_points=num_points)
 
+def scenenn_data_prep(root_path, info_prefix, out_dir, workers):
+    """Prepare the info file for sunrgbd dataset.
+
+    Args:
+        root_path (str): Path of dataset root.
+        info_prefix (str): The prefix of info filenames.
+        out_dir (str): Output directory of the generated info file.
+        workers (int): Number of threads to be used.
+    """
+    indoor.create_indoor_info_file(
+        root_path,
+        info_prefix,
+        out_dir,
+        workers=workers)
 
 def waymo_data_prep(root_path,
                     info_prefix,
@@ -309,5 +323,11 @@ if __name__ == '__main__':
             root_path=args.root_path,
             info_prefix=args.extra_tag,
             num_points=args.num_points,
+            out_dir=args.out_dir,
+            workers=args.workers)
+    elif args.dataset == 'scenenn':
+        scenenn_data_prep(
+            root_path=args.root_path,
+            info_prefix=args.extra_tag,
             out_dir=args.out_dir,
             workers=args.workers)

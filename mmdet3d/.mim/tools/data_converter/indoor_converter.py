@@ -7,6 +7,9 @@ import numpy as np
 from tools.data_converter.s3dis_data_utils import S3DISData, S3DISSegData
 from tools.data_converter.scannet_data_utils import ScanNetData, ScanNetSegData, ScanNetMVData, ScanNetSVData
 from tools.data_converter.sunrgbd_data_utils import SUNRGBDData
+from tools.data_converter.scenenn_data_utils import SceneNNMVData
+
+import pdb
 
 
 def create_indoor_info_file(data_path,
@@ -28,7 +31,7 @@ def create_indoor_info_file(data_path,
             May include `use_v1` for SUN RGB-D and `num_points`.
     """
     assert os.path.exists(data_path)
-    assert pkl_prefix in ['sunrgbd', 'scannet', 'scannet_mv', 's3dis', 'scannet_sv'], \
+    assert pkl_prefix in ['sunrgbd', 'scannet', 'scannet_mv', 's3dis', 'scannet_sv', 'scenenn_mv'], \
         f'unsupported indoor dataset {pkl_prefix}'
     save_path = data_path if save_path is None else save_path
     assert os.path.exists(save_path)
@@ -149,6 +152,14 @@ def create_indoor_info_file(data_path,
         mmcv.dump(infos_train, train_filename, 'pkl')
         print(f'{pkl_prefix} info train file is saved to {train_filename}')
 
+        infos_val = val_dataset.get_infos(num_workers=workers, has_label=True)
+        mmcv.dump(infos_val, val_filename, 'pkl')
+        print(f'{pkl_prefix} info val file is saved to {val_filename}')
+
+
+    if pkl_prefix == 'scenenn_mv':
+        val_filename = os.path.join(save_path, f'{pkl_prefix}_infos_val.pkl')
+        val_dataset = SceneNNMVData(root_path=data_path, split='val')
         infos_val = val_dataset.get_infos(num_workers=workers, has_label=True)
         mmcv.dump(infos_val, val_filename, 'pkl')
         print(f'{pkl_prefix} info val file is saved to {val_filename}')

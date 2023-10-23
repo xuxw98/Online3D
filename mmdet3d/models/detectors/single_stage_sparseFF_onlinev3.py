@@ -18,6 +18,7 @@ import numpy as np
 import torch.nn as nn
 import os
 import pdb
+import time
 
 
 @DETECTORS.register_module()
@@ -80,6 +81,46 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
         if hasattr(self, 'img_memory'):
             self.img_memory.init_weights()
         self.neck_with_head.init_weights()
+
+
+    def view_model_param(self):
+        total_param = 0
+        print("MODEL DETAILS:\n")
+        #print(model)
+        for param in self.parameters():
+            # print(param.data.size())
+            total_param += np.prod(list(param.data.size()))
+        # for param in self.backbone.parameters():
+        #     # print(param.data.size())
+        #     total_param += np.prod(list(param.data.size()))
+        # if hasattr(self, 'memory'):
+        #     for param in self.memory.parameters():
+        #         # print(param.data.size())
+        #         total_param += np.prod(list(param.data.size()))
+        # if hasattr(self, 'img_memory'):
+        #     for param in self.img_memory.parameters():
+        #         # print(param.data.size())
+        #         total_param += np.prod(list(param.data.size()))
+        # for param in self.neck_with_head.parameters():
+        #     # print(param.data.size())
+        #     total_param += np.prod(list(param.data.size()))
+        print('MODEL/Total parameters:', total_param)
+        
+        # 假设每个参数是一个 32 位浮点数（4 字节）
+        bytes_per_param = 4
+        
+        # 计算总字节数
+        total_bytes = total_param * bytes_per_param
+        
+        # 转换为兆字节（MB）和千字节（KB）
+        total_megabytes = total_bytes / (1024 * 1024)
+        total_kilobytes = total_bytes / 1024
+
+        print("Total parameters in MB:", total_megabytes)
+        print("Total parameters in KB:", total_kilobytes)
+
+        return total_param
+
              
     def extract_feat(self, points, img, img_metas):
         """Extract features from points.
@@ -194,6 +235,8 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
                 else:
                     losses[key] = value
         return losses
+    
+
 
     def simple_test(self, points, img_metas, img, *args, **kwargs):
         """Test without augmentations.
@@ -209,6 +252,11 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
         Returns:
             list[dict]: Predicted 3d boxes.
         """
+        # self.view_model_param()
+        # pdb.set_trace()
+
+        # t0 = time.time()
+        # print('Frame:%d'%points[0].shape[0])
         # Benchmark
         timestamps = []
         if self.evaluator_mode == 'slice_len_constant':
@@ -243,6 +291,9 @@ class SingleStageSparse3DDetectorFF_OnlineV3(Base3DDetector):
                 bbox_list, bbox_data_list = self.neck_with_head.forward_test(current_feats, bbox_data_list, img_metas)
                 bboxes, scores, labels = bbox_list[0]
                 bbox_results[0].append(bbox3d2result(bboxes, scores, labels))
+
+        # t1 = time.time() - t0
+        # print('stage1 %f sec'%t1)
 
         return bbox_results
 
