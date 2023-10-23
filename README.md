@@ -41,6 +41,21 @@ Evaluate MinkUNet (fintuned on ScanNet-MV) on SceneNN-MV:
 CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/minkunet_online/minkunetFF_scenenn_seg-3d-16class.py work_dirs/minkunet_online/latest.pth 2 --show-dir work_dirs/debug/ --eval x
 ```
 
+Evaluate FusionAwareConv on ScanNet-MV:
+```
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/fusion_aware/fusion_aware_scannet_seg-3d-20class.py work_dirs/debug/temp.pth 2 --show-dir work_dirs/debug/ --eval x
+```
+
+Evaluate FusionAwareConv on SceneNN-MV:
+```
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/fusion_aware/fusion_aware_scenenn_seg-3d-16class.py work_dirs/debug/temp.pth 2 --show-dir work_dirs/debug/ --eval x
+```
+
+Evaluate Anyview on ScanNet-MV:
+```
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/anyview/anyview_scannet-3d-18class.py work_dirs/anyview/anyview.pth 2 --show-dir work_dirs/debug/ --eval x
+```
+
 
 目前只维护FF版本，纯Depth版本不进行更新
 
