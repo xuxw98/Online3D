@@ -32,8 +32,8 @@ CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/td3d_onlin
 
 Finetune and evaluate MinkUNet (trained with SVFF) on ScanNet-MV:
 ```
-CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_train.sh configs/minkunet_online/minkunetFF_scannet_seg-3d-20class.py 2 --work-dir work_dirs/minkunet_online
-CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/minkunet_online/minkunetFF_scannet_seg-3d-20class.py work_dirs/minkunet_online/latest.pth 2 --show-dir work_dirs/debug/ --eval x
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_train.sh configs/minkunet_online/minkunetFF_online_scannet_seg-3d-20class.py 2 --work-dir work_dirs/minkunet_online
+CUDA_VISIBLE_DEVICES=0,1 PORT=29544 bash ./tools/dist_test.sh configs/minkunet_online/minkunetFF_online_scannet_seg-3d-20class.py work_dirs/minkunet_online/latest.pth 2 --show-dir work_dirs/debug/ --eval x
 ```
 
 Evaluate MinkUNet (fintuned on ScanNet-MV) on SceneNN-MV:
