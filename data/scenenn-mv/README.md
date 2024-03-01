@@ -1,5 +1,5 @@
-### Processed Data
-The processed data can be downloaded from xxx.
+### Processed SceneNN Data
+The processed SceneNN data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/).Run `cat mmdet_xxx.tar.* > mmdet_xxx.tar` to merge the files.  
 
 
 ### Prepare SceneNN-MV data for semantic segmentation test
