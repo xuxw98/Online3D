@@ -1,5 +1,6 @@
 ### Processed ScanNet 2D Data
-The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/library/5127338d-074c-4e1e-b4e5-a8c9f18e94bf/Online3D/). Then skip the following step 2 and step 3. 
+The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/library/5127338d-074c-4e1e-b4e5-a8c9f18e94bf/Online3D/). Run `cat mmdet_xxx.tar.* > mmdet_xxx.tar` to merge the files.  
+Then skip the following step 2 and step 3. 
 
 
 ### Prepare ScanNet-SV data for training monocular RGB-D perception model 
