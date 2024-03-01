@@ -1,5 +1,5 @@
-### Processed Data
-The processed data can be downloaded from xxx.
+### Processed ScanNet 2D Data
+The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/library/5127338d-074c-4e1e-b4e5-a8c9f18e94bf/Online3D/). Then skip the following step 2 and step 3. 
 
 
 ### Prepare ScanNet-MV data for online tuning
@@ -7,14 +7,15 @@ The processed data can be downloaded from xxx.
 **Step 1.** Download ScanNet v2 data [HERE](https://github.com/ScanNet/ScanNet). Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
 Link or move the 'scans' and 'meta_data' folder to this level of directory. 
 
-For 2D data, run:
+**Step 2.** 
+For 2D source data, run:
 ```
 python download-scannet.py -o <ScanNet root> --type .sens
 python download-scannet.py -o <ScanNet root> --type _2d-label.zip
 python download-scannet.py -o <ScanNet root> --type _2d-instance.zip
 ```
 
-**Step 2.** Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
+Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
 
 ```
 2D_info
@@ -24,18 +25,19 @@ python download-scannet.py -o <ScanNet root> --type _2d-instance.zip
 ```
 
 Link or move the '2D_info' folder to this level of directory. 
- 
+
+ **Step 3.** 
 Process 2D data by:
 ```
 python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_map_file ./meta_data/scannetv2-labels.combined.tsv --scene_index_file ./meta_data/scannet_train.txt
 ```
 
-**Step 3.** Generate online data by:
+**Step 4.** Generate online data by:
 ```
 python generate_online_data.py
 ```
 
-**Step 4.** Generate .pkl files by:
+**Step 5.** Generate .pkl files by:
 ```
 python tools/create_data.py scannet --root-path ./data/scannet-mv --out-dir ./data/scannet-mv --extra-tag scannet_mv
 ```
