@@ -7,6 +7,7 @@ The processed data can be downloaded from xxx.
 **Step 1.** Download SceneNN oni data [HERE](https://hkust-vgd.ust.hk/scenenn/main/oni/). Then download ply data, xml data and trajectory data [HERE](https://drive.google.com/drive/folders/0B2BQi-ql8CzecGxSeXNzYWNZQUk?resourcekey=0-0zdk0kE0OD1Vp848__ZTdQ).
 The data of the scene is structured as follows:
 
+```
 SceneNN
 ├── 005
 │   ├── 005.ply                 /* the reconstructed triangle mesh  */
@@ -14,6 +15,7 @@ SceneNN
 ├── trajectory
 │   ├── 005_trajectory.log      /* camera pose (local to world)     */
 └── 005.oni                     /* the raw RGBD video               */
+```
 
 For simplicity and representativeness, we select 12 highly comprehensive and object-rich scenes , namely ['015', '005', '030', '054', '322', '263', '243', '080', '089', '093', '096', '011'].
 
