@@ -32,7 +32,7 @@ For training and evaluation:
 ## Main Results
 We provide the checkpoints for quick reproduction of the results reported in the paper. 
 
-3D semantic segmentation results on ScanNet and SceneNN datasets are as follows:
+3D semantic segmentation on ScanNet and SceneNN:
 
  Method | Type | Dataset | mIou | mAcc | Downloads 
  | :--------------: | :----: | :----: | :----: |:----: |:----: |
@@ -42,14 +42,14 @@ We provide the checkpoints for quick reproduction of the results reported in the
  MkNet-SV | Online | SceneNN |48.4 | 61.2 | [model](https://cloud.tsinghua.edu.cn/f/e80eeea97e684a75af05/?dl=1)
  MkNet-SV + Ours | Online | SceneNN |56.7 | 70.1 | [model](https://cloud.tsinghua.edu.cn/f/e271e43d2a934a4da490/?dl=1)
 
-3D object detection results on ScanNet dataset are as follows:
+3D object detection on ScanNet:
  Method | Type |  mAP@25 | mAP@50 | Downloads 
  | :--------------: |  :----: | :----: |:----: |:----: |
  FCAF3D | Offline | 70.7 | 56.0 | -
  FCAF3D-SV | Online | 41.9 | 20.6 | [model](https://cloud.tsinghua.edu.cn/f/ff974cb9c4764b19bda6/?dl=1)
  FCAF3D-SV + Ours | Online |70.5 | 49.9 | [model](https://cloud.tsinghua.edu.cn/f/8c9647fad3bd4ee99bcc/?dl=1)
 
- 3D instance segmentation results on ScanNet dataset are as follows:
+ 3D instance segmentation on ScanNet:
  Method | Type |  mAP@25 | mAP@50 | Downloads 
  | :--------------: | :----: | :----: |:----: |:----: |
  TD3D | Offline |81.3 | 71.1 | -
@@ -75,12 +75,7 @@ And NS means the number of sequence, while LS means the length of Sequence.
 -->
 
 
-
-
- 
-
-
-Visualization results on ScanNet:
+Visualization results:
 
 ![vis](./images/vis.png)
 
@@ -93,10 +88,10 @@ We thank a lot for the flexible codebase of [FCAF3D](https://github.com/SamsungL
 If this work is helpful for your research, please consider citing the following BibTeX entry.
 
 ```
-@article{xu2023dsp, 
-      title={DSPDet3D: Dynamic Spatial Pruning for 3D Small Object Detection}, 
-      author={Xiuwei Xu and Zhihao Sun and Ziwei Wang and Hongmin Liu and Jie Zhou and Jiwen Lu},
-      journal={arXiv preprint arXiv:2305.03716},
-      year={2023}
+@article{xu2024online, 
+      title={Memory-based Adapters for Online 3D Scene Perception}, 
+      author={Xiuwei Xu and Chong Xia and Ziwei Wang and Linqing Zhao and Yueqi Duan and Jie Zhou and Jiwen Lu},
+      journal={arXiv preprint arXiv:xxxx.xxxxx},
+      year={2024}
 }
 ```
