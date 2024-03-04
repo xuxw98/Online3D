@@ -2,16 +2,16 @@
 
 ## Introduction
 
-This repo contains PyTorch implementation for paper [Memory-based Adapters for Online 3D Scene Perception] based on [MMDetection3D](https://github.com/open-mmlab/mmdetection3d).
+This repo contains PyTorch implementation for paper [Memory-based Adapters for Online 3D Scene Perception](https://arxiv.org/abs/xxxx.xxxxx) based on [MMDetection3D](https://github.com/open-mmlab/mmdetection3d).
 
 > Memory-based Adapters for Online 3D Scene Perception
-> [Xiuwei Xu](https://xuxw98.github.io/), Chong Xia, [Ziwei Wang](https://ziweiwangthu.github.io/), Linqing Zhao, Yueqi Duan,[Jie Zhou](https://scholar.google.com/citations?user=6a79aPwAAAAJ&hl=en&authuser=1), [Jiwen Lu](http://ivg.au.tsinghua.edu.cn/Jiwen_Lu/)
+> [Xiuwei Xu](https://xuxw98.github.io/)*, Chong Xia\*, [Ziwei Wang](https://ziweiwangthu.github.io/), [Linqing Zhao](https://scholar.google.com/citations?user=ypxt5UEAAAAJ&hl=zh-CN&oi=ao), [Yueqi Duan](https://duanyueqi.github.io/), [Jie Zhou](https://scholar.google.com/citations?user=6a79aPwAAAAJ&hl=en&authuser=1), [Jiwen Lu](http://ivg.au.tsinghua.edu.cn/Jiwen_Lu/)
 >
 
 ![teaser](./images/teaser2.png)
 
 ## News
-- [2023/3/x]: Code release.
+- [2023/3/x]: Code released.
 - [2023/2/27]: Our paper is accepted by CVPR 2024.
 
 ## Method
@@ -56,7 +56,7 @@ We provide the checkpoints for quick reproduction of the results reported in the
  TD3D-SV | Online|53.7 | 36.8 | [model](https://cloud.tsinghua.edu.cn/f/0666d3cf263941d8b3e5/?dl=1)
  TD3D-SV + Ours | Online | 71.3 | 60.5 | [model](https://cloud.tsinghua.edu.cn/f/d95e96f55c93494ea14b/?dl=1)
 
-
+<!--
  Here is the performance of different 3D scene perception methods on ScanNet online benchmark. We report mIoU / mAcc, mAP@25 /
 mAP@50 and mAP@25 / mAP@50 for semantic segmentation, object detection and instance segmentation respectively.
 And NS means the number of sequence, while LS means the length of Sequence.
@@ -72,8 +72,7 @@ And NS means the number of sequence, while LS means the length of Sequence.
  Insseg | TD3D | Offline | 64.0/50.8 | 61.6/49.7 | 59.4/48.4|59.0/47.9|61.4/49.8|61.7/49.8
  Insseg | TD3D-SV | Online | 53.7/36.8 | 54.2/41.6 | 57.0/46.3|56.4/45.5|53.9/40.9|52.6/39.5
  Insseg | TD3D-SV + Ours  | Online | 71.3/60.5 | 64.7/55.2 | 64.2/55.0|64.0/54.7|64.6/55.1|63.9/54.3
-
-
+-->
 
 
 
