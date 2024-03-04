@@ -3,6 +3,7 @@
 ## Introduction
 
 This repo contains PyTorch implementation for paper [Memory-based Adapters for Online 3D Scene Perception](https://arxiv.org/abs/xxxx.xxxxx) based on [MMDetection3D](https://github.com/open-mmlab/mmdetection3d).
+We propose a model and task-agnostic plug-and-play module, which converts offline 3D scene perception models (receive reconstructed point clouds) to online perception models (receive streaming RGB-D videos).
 
 > Memory-based Adapters for Online 3D Scene Perception  
 > [Xiuwei Xu](https://xuxw98.github.io/)*, Chong Xia\*, [Ziwei Wang](https://ziweiwangthu.github.io/), [Linqing Zhao](https://scholar.google.com/citations?user=ypxt5UEAAAAJ&hl=zh-CN&oi=ao), [Yueqi Duan](https://duanyueqi.github.io/), [Jie Zhou](https://scholar.google.com/citations?user=6a79aPwAAAAJ&hl=en&authuser=1), [Jiwen Lu](http://ivg.au.tsinghua.edu.cn/Jiwen_Lu/)
