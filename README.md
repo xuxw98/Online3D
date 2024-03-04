@@ -21,6 +21,10 @@ Overall pipeline of our work:
 
 ![overview](./images/over-arch.png)
 
+Our memory-based adapters can be easily inserted into existing architecture by a few lines in config:
+```python
+class ExampleNetwork(ME.MinkowskiNetwork):
+```
 
 ## Getting Started
 For data preparation and environment setup:
