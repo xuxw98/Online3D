@@ -3,8 +3,8 @@ _base_ = [
 ]
 
 # dataset settings
-dataset_type = 'ScanNetMVSegDataset' # TODO: may need to provide resampled scene_idx
-data_root = './data/scannet-mv1/'
+dataset_type = 'ScanNetMVSegDataset'
+data_root = './data/scannet-mv/'
 class_names = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
                'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
                'curtain', 'refrigerator', 'showercurtrain', 'toilet', 'sink',
