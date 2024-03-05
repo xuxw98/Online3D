@@ -3,8 +3,8 @@ _base_ = [
 ]
 
 # dataset settings
-dataset_type = 'SceneNNMVSegDataset' # TODO: may need to provide resampled scene_idx
-data_root = './data/scenenn-mv1/'
+dataset_type = 'SceneNNMVSegDataset'
+data_root = './data/scenenn-mv/'
 class_names = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
                'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
                'curtain', 'refrigerator', 'sink')
