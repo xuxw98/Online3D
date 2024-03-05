@@ -26,7 +26,13 @@ python prepare_2d_ins.py --scannet_path ./2D_info --output_path ./2D --scene_ind
 ```
 
 
-**Step 2.** Download `scannet_frames_25k.zip` [HERE](https://github.com/ScanNet/ScanNet). Link or move the 'scannet_frames_25k' folder to this level of directory.
+**Step 2.** For scannet_frames_25k data, run: 
+
+```
+python download-scannet.py -o <ScanNet root> --preprocessed_frames 
+``` 
+
+Link or move the 'scannet_frames_25k' folder to this level of directory.
 Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
 Link or move the 'scans' folder to this level of directory.
 
