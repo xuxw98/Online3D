@@ -3,8 +3,8 @@ _base_ = [
 ]
 
 # dataset settings
-dataset_type = 'ScanNetMVSegDataset' # TODO: may need to provide resampled scene_idx
-data_root = './data/scannet-mv1/'
+dataset_type = 'ScanNetMVSegDataset' 
+data_root = './data/scannet-mv/'
 class_names = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
                'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
                'curtain', 'refrigerator', 'showercurtrain', 'toilet', 'sink',
@@ -72,9 +72,8 @@ eval_pipeline = [
 ]
 
 data = dict(
-    # 6 8
-    samples_per_gpu=1,
-    workers_per_gpu=0,
+    samples_per_gpu=6,
+    workers_per_gpu=8,
     train=dict(       
         type='RepeatDataset',
         times=10,
