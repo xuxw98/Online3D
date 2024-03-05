@@ -23,7 +23,6 @@ model = dict(
     num_slice=num_slice,
     len_slice=len_slice,
     img_backbone=dict(type='Resnet_FPN_Backbone',),
-    # img_memory=dict(type='MultilevelImgMemory',),
     backbone=dict(type='MinkFFResNet', in_channels=3, depth=34, norm='batch', return_stem=True, stride=1),
     memory=dict(type='MultilevelMemory', in_channels=[32, 64, 128, 256, 512], vmp_layer=(1,2,3,4)),
     memory_insseg=dict(type='MultilevelMemory_Insseg', in_channels=[32, 128, 128, 128, 128, 2], vmp_acc_layer=(0,5), acc_tot=8),
@@ -65,11 +64,6 @@ model = dict(
         score_thr=.15,
         binary_score_thr=0.2,
         delta=0.03))
-# score thr 0.15->0.02
-# nms num 30/100 -> 100/300
-# To avoid gpu memory problems during validation callback, 
-# set score_thr to 0.15 and nms_pre to 100 in configs before training 
-# (then return them to their original values during testing):
 
 optimizer = dict(type='AdamW', lr=0.001, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
@@ -121,8 +115,6 @@ train_pipeline = [
             dict(type='Pad', size_divisor=32)
         ]
         ),
-    # dict(
-    #     type='MultiViewsPointSample', num_points=n_points),
     dict(
         type='MultiViewsPointSegClassMappingV2',
         valid_cat_ids=(3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34,
