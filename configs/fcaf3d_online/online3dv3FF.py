@@ -1,5 +1,5 @@
 evaluator_mode = 'slice_num_constant'
-num_slice = 5
+num_slice = 1
 len_slice = 5
 
 model = dict(
