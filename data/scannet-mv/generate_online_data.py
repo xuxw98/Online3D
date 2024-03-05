@@ -180,55 +180,20 @@ def get_3d_bbox_new(xyzrgb):
             cur_tmp_xyz = np.empty([0,3])
         else:
             cur_tmp_xyz = xyz[mask_]
-        
-        # 100
-        # if cur_tmp_xyz.shape[0] > 50:
-            # save_path =  os.path.join('/home/ubuntu/xxw/SmallDet/mmdetection3d/dataset/OVD_sv_real_gt/OVD_sv_real_gt_train', "%s_pc_before_%s.obj"%(name,ins))
-            # _write_obj(cur_tmp_xyz,  save_path)
-            ###剔除离群点
+
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(cur_tmp_xyz)
-        res = pcd.remove_statistical_outlier(20, 2.0)   #统计法
-        # res = pcd.remove_radius_outlier(nb_points=10, radius=0.05)#半径方法剔除
+        res = pcd.remove_statistical_outlier(20, 2.0)   
+        # res = pcd.remove_radius_outlier(nb_points=10, radius=0.05)
         cur_tmp_xyz = np.asarray(res[0].points)
 
-            # ###DBSCAN聚类
-            # db = DBSCAN(eps=0.1, min_samples=100).fit(cur_tmp_xyz)
-            # # ic(np.unique(db.labels_))
-            # clusters = []
-            # max_mask = np.unique(db.labels_)
-            # for i, cluster in enumerate(np.unique(db.labels_)):
-            #     if cluster < 0:
-            #         max_mask[i] = 0
-            #         clusters.append(np.array([0]))
-            #         continue
-                
-            #     cluster_ind = np.where(db.labels_ == cluster)[0]
-            #     max_mask[i] = cluster_ind.shape[0]
-            #     clusters.append(cluster_ind)
-            #     # if cluster_ind.shape[0] / cur_tmp_xyz.shape[0] < 0.1 or cluster_ind.shape[0] <= 100:
-            #     #     continue
-                
-            # # pdb.set_trace()
-            # if clusters[np.argmax(max_mask)].shape[0] > 100 and clusters[np.argmax(max_mask)].shape[0] / cur_tmp_xyz.shape[0] > 0.1:
-            #     cur_tmp_xyz = cur_tmp_xyz[clusters[np.argmax(max_mask)],:]
-            # # cur_tmp_xyz = cur_tmp_xyz[cluster_ind,:]
-            # # pdb.set_trace()
-            # # if name == 'scene0000_00_000900' and ins == 4:
-            # #     save_path =  os.path.join('/home/ubuntu/xxw/SmallDet/mmdetection3d/dataset/OVD_sv_real_gt/OVD_sv_real_gt_train', "%s_pc_after_%s.obj"%(name,ins))
-            # #     _write_obj(cur_tmp_xyz,  save_path)
-            # #     ic('okkkk!!!!!!')
-            # # ic(cur_tmp_xyz.shape, ins)
-              
-            # # 150
-        if cur_tmp_xyz.shape[0] > 150:   #200的效果目前2好    ##先过离群点过滤，再150更好
+        if cur_tmp_xyz.shape[0] > 150:  
             cur_bbox_3d = np.zeros(7)
             cur_bbox_3d[:7] = compute_bbox_aabb(cur_tmp_xyz)[0,:7]
             instance_valid[ins] = True
             bboxes.append(torch.Tensor(cur_bbox_3d))
             
-        # else:
-        #     continue
+
 
     if len(bboxes) != 0:
         bboxes = torch.stack(bboxes, dim=0)
@@ -525,9 +490,6 @@ if __name__ == '__main__':
             pc[:,0:3] = pts[:,0:3]
             pose_ = np.dot(axis_align_matrix, pose)
 
-            # u must merge two files to one file
-            # 7 -2 ins 
-            # 8 -1 label
             xyzrgb = np.concatenate([pc[:,0:6],pc[:,7:9]], axis=1) 
             xyz_for_bbox, xyzrgb = select_points_in_bbox(xyzrgb, scene_bboxes, bbox_instance_labels)
             # xyzrgb = remove_far_points(xyzrgb)
@@ -550,9 +512,6 @@ if __name__ == '__main__':
             if modal_bboxes.shape[0] > 0 and scene_bboxes.shape[0] > 0:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), modal_bboxes)
                 np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), amodal_box_mask.astype(np.bool_))
-            # elif scene_bboxes.shape[0] == 0:
-            #     np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), np.zeros((1,8)))
-            #     np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.ones((1)))
             else:
                 np.save('modal_box/%s/%s.npy' % (scene_name, frame_id), np.empty([0,8]))
                 np.save('amodal_box_mask/%s/%s.npy' % (scene_name, frame_id), np.zeros((scene_bboxes.shape[0])).astype(np.bool_))
