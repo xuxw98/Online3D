@@ -3,8 +3,8 @@ _base_ = [
 ]
 
 # dataset settings
-dataset_type = 'ScanNetSVSegDataset' # TODO: may need to provide resampled scene_idx
-data_root = './data/scannet-sv1/'
+dataset_type = 'ScanNetSVSegDataset'
+data_root = './data/scannet-sv/'
 class_names = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
                'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
                'curtain', 'refrigerator', 'showercurtrain', 'toilet', 'sink',
@@ -16,7 +16,7 @@ model = dict(
     type='EncoderDecoder3D',
     backbone=dict(
         type='PointNet2SASSG',
-        in_channels=6,  # [xyz, rgb], should be modified with dataset
+        in_channels=6,  
         num_points=(1024, 256, 64, 16),
         radius=(0.1, 0.2, 0.4, 0.8),
         num_samples=(32, 32, 32, 32),
@@ -125,9 +125,7 @@ test_pipeline = [
             dict(type='Collect3D', keys=['points'])
         ])
 ]
-# construct a pipeline for data and gt loading in show function
-# please keep its loading function consistent with test_pipeline (e.g. client)
-# we need to load gt seg_mask!
+
 eval_pipeline = [
     dict(
         type='LoadPointsFromFile',
