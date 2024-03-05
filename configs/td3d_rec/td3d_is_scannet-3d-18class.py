@@ -76,7 +76,7 @@ resume_from = None
 workflow = [('train', 1)]
 
 dataset_type = 'ScanNetMVInstanceSegV2Dataset'
-data_root = './data/scannet-mv1/'
+data_root = './data/scannet-mv/'
 
 train_pipeline = [
     dict(
