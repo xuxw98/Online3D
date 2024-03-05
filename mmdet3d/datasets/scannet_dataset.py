@@ -1597,40 +1597,6 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             mapping = {int(k):v for k,v in mapping.items()}
         return mapping
 
-    def export(self, mesh_file, agg_file, seg_file, meta_file, label_map):
-        mesh_vertices = self.read_mesh_vertices(mesh_file)
-
-        # Load scene axis alignment matrix
-        lines = open(meta_file).readlines()
-        for line in lines:
-            if 'axisAlignment' in line:
-                axis_align_matrix = [float(x) \
-                    for x in line.rstrip().strip('axisAlignment = ').split(' ')]
-                break
-        axis_align_matrix = np.array(axis_align_matrix).reshape((4,4))
-        pts = np.ones((mesh_vertices.shape[0], 4))
-        pts[:,0:3] = mesh_vertices[:,0:3]
-        pts = np.dot(pts, axis_align_matrix.transpose()) # Nx4
-        mesh_vertices[:,0:3] = pts[:,0:3]
-
-        # Load semantic and instance labels
-        object_id_to_segs, label_to_segs = self.read_aggregation(agg_file)
-        seg_to_verts, num_verts = self.read_segmentation(seg_file)
-
-        label_ids = np.zeros(shape=(num_verts), dtype=np.uint32) # 0: unannotated
-        object_id_to_label_id = {}
-        for label, segs in label_to_segs.items():
-            label_id = label_map[label]
-            if label_id in self.cat_ids2class.keys():
-                label_id = self.cat_ids2class[label_id]
-            else:
-                label_id = len(self.cat_ids)
-            for seg in segs:
-                verts = seg_to_verts[seg]
-                label_ids[verts] = label_id
-        
-        return mesh_vertices, label_ids, object_id_to_segs, seg_to_verts
-    
 
     def export_new(self, mesh_file, seg_file, meta_file, label_map):
         mesh_vertices, labels = self.read_mesh_vertices_label(mesh_file)
@@ -1672,40 +1638,19 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
         
         return mesh_vertices, label_ids, seg_to_verts
 
-    def load_rec_points(self):
-        rec_points = []
-        gt_sem_masks = []
-        object_id_to_segs_list = []
-        seg_to_verts_list = []
-        label_map_file = '/home/ubuntu/xxw/Online3D/Online3D/data/scannet-mv1/meta_data/scannetv2-labels.combined.tsv'
-        label_map = self.read_label_mapping(label_map_file,
-            label_from='raw_category', label_to='nyu40id')    
-        for w in range(len(self.data_infos)):
-            scan_name = self.data_infos[w]['point_cloud']['lidar_idx']
-            mesh_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.ply')
-            meta_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.  
-            agg_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '.aggregation.json')
-            seg_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json') 
-            mesh_vertices, gt_sem_mask, object_id_to_segs, seg_to_verts = self.export(mesh_file, agg_file, seg_file, meta_file, label_map)
-            rec_points.append(mesh_vertices)
-            gt_sem_masks.append(gt_sem_mask)
-            object_id_to_segs_list.append(object_id_to_segs)
-            seg_to_verts_list.append(seg_to_verts)
-        return rec_points, gt_sem_masks, object_id_to_segs_list, seg_to_verts_list
-    
 
     def load_rec_points_new(self):
         rec_points = []
         gt_sem_masks = []
         seg_to_verts_list = []
-        label_map_file = '/home/ubuntu/xxw/Online3D/Online3D/data/scannet-mv1/meta_data/scannetv2-labels.combined.tsv'
+        label_map_file = './data/scannet-mv1/meta_data/scannetv2-labels.combined.tsv'
         label_map = self.read_label_mapping(label_map_file,
             label_from='raw_category', label_to='nyu40id')    
         for w in range(len(self.data_infos)):
             scan_name = self.data_infos[w]['point_cloud']['lidar_idx']
-            mesh_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.labels.ply')
-            meta_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.  
-            seg_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json') 
+            mesh_file = os.path.join(self.data_root, 'scans', scan_name, scan_name + '_vh_clean_2.labels.ply')
+            meta_file = os.path.join(self.data_root, 'scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.  
+            seg_file = os.path.join(self.data_root, 'scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json') 
             mesh_vertices, gt_sem_mask, seg_to_verts = self.export_new(mesh_file, seg_file, meta_file, label_map)
             rec_points.append(mesh_vertices)
             gt_sem_masks.append(gt_sem_mask)
