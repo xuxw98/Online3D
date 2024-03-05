@@ -1555,6 +1555,23 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             vertices[:,2] = plydata['vertex'].data['z']
         return vertices
     
+    def read_mesh_vertices_label(self, filename):
+        """ read XYZ RGB for each vertex.
+        Note: RGB values are in 0-255
+        """
+        assert os.path.isfile(filename)
+        with open(filename, 'rb') as f:
+            plydata = PlyData.read(f)
+            num_verts = plydata['vertex'].count
+            vertices = np.zeros(shape=[num_verts, 3], dtype=np.float32)
+            vertices[:,0] = plydata['vertex'].data['x']
+            vertices[:,1] = plydata['vertex'].data['y']
+            vertices[:,2] = plydata['vertex'].data['z']
+            label = plydata['vertex'].data['label']
+        return vertices, np.array(label)
+    
+
+    
     def represents_int(s):
         ''' if string s represents an int. '''
         try: 
@@ -1612,10 +1629,48 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
                 verts = seg_to_verts[seg]
                 label_ids[verts] = label_id
         
-
         return mesh_vertices, label_ids, object_id_to_segs, seg_to_verts
     
 
+    def export_new(self, mesh_file, seg_file, meta_file, label_map):
+        mesh_vertices, labels = self.read_mesh_vertices_label(mesh_file)
+
+        # Load scene axis alignment matrix
+        lines = open(meta_file).readlines()
+        for line in lines:
+            if 'axisAlignment' in line:
+                axis_align_matrix = [float(x) \
+                    for x in line.rstrip().strip('axisAlignment = ').split(' ')]
+                break
+        axis_align_matrix = np.array(axis_align_matrix).reshape((4,4))
+        pts = np.ones((mesh_vertices.shape[0], 4))
+        pts[:,0:3] = mesh_vertices[:,0:3]
+        pts = np.dot(pts, axis_align_matrix.transpose()) # Nx4
+        mesh_vertices[:,0:3] = pts[:,0:3]
+
+        # Load semantic and instance labels
+        seg_to_verts, num_verts = self.read_segmentation(seg_file)
+
+
+        label_ids = np.zeros(shape=(num_verts), dtype=np.uint32) # 0: unannotated
+        for i in range(labels.shape[0]):
+            if labels[i] in self.cat_ids2class.keys():
+                label_ids[i] = self.cat_ids2class[labels[i]]
+            else:
+                label_ids[i] = len(self.cat_ids)
+        # label_ids = np.zeros(shape=(num_verts), dtype=np.uint32) # 0: unannotated
+        # object_id_to_label_id = {}
+        # for label, segs in label_to_segs.items():
+        #     label_id = label_map[label]
+        #     if label_id in self.cat_ids2class.keys():
+        #         label_id = self.cat_ids2class[label_id]
+        #     else:
+        #         label_id = len(self.cat_ids)
+        #     for seg in segs:
+        #         verts = seg_to_verts[seg]
+        #         label_ids[verts] = label_id
+        
+        return mesh_vertices, label_ids, seg_to_verts
 
     def load_rec_points(self):
         rec_points = []
@@ -1637,6 +1692,25 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             object_id_to_segs_list.append(object_id_to_segs)
             seg_to_verts_list.append(seg_to_verts)
         return rec_points, gt_sem_masks, object_id_to_segs_list, seg_to_verts_list
+    
+
+    def load_rec_points_new(self):
+        rec_points = []
+        gt_sem_masks = []
+        seg_to_verts_list = []
+        label_map_file = '/home/ubuntu/xxw/Online3D/Online3D/data/scannet-mv1/meta_data/scannetv2-labels.combined.tsv'
+        label_map = self.read_label_mapping(label_map_file,
+            label_from='raw_category', label_to='nyu40id')    
+        for w in range(len(self.data_infos)):
+            scan_name = self.data_infos[w]['point_cloud']['lidar_idx']
+            mesh_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.labels.ply')
+            meta_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.  
+            seg_file = os.path.join(self.data_root, '3D/scans', scan_name, scan_name + '_vh_clean_2.0.010000.segs.json') 
+            mesh_vertices, gt_sem_mask, seg_to_verts = self.export_new(mesh_file, seg_file, meta_file, label_map)
+            rec_points.append(mesh_vertices)
+            gt_sem_masks.append(gt_sem_mask)
+            seg_to_verts_list.append(seg_to_verts)
+        return rec_points, gt_sem_masks, seg_to_verts_list
 
     def nearest_neighbor_interpolation(self, tree, target_coords, source_labels):
         _, nearest_neighbors = tree.query(target_coords[:,:3])
@@ -1700,7 +1774,8 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
         # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/pred_sem_0.npy',pred_sem_masks[0])
         # pdb.set_trace()
         #  
-
+        # pred_res = None
+        # point_temp = None
         # self.use_voxel_eval = True
         if self.use_voxel_eval:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -1726,36 +1801,66 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
                 print('vNum:%d'%(pred_sparse.coordinates.shape[0]),end="  ")
                 gt_sem_masks_new.append(gt_sparse.features.cpu())
                 pred_sem_masks_new.append(pred_sparse.features_at_coordinates(gt_sparse.coordinates.float()).cpu())
-
+                
+                # pred_res = pred_sparse.features_at_coordinates(sparse_tensor_coordinates)
+                # point_temp = pred_sparse.coordinates[:,1:] * self.voxel_size
 
 
             gt_sem_masks = gt_sem_masks_new
             pred_sem_masks = pred_sem_masks_new
 
-        self.use_interpolation = True
-
+        # self.use_interpolation = True
+        sem_res = []
+        gt_res = []
         if self.use_interpolation:
-            rec_points, gt_sem_masks, object_id_to_segs_list, seg_to_verts_list = self.load_rec_points()
+            rec_points, gt_sem_masks_list, seg_to_verts_list = self.load_rec_points_new()
             pred_sem_masks_interpolation = []
             gt_sem_masks_new = []
-            for point, gt_sem_mask, pred_sem_mask, rec_point, object_id_to_segs, seg_to_verts in zip(points, gt_sem_masks, pred_sem_masks, rec_points, object_id_to_segs_list, seg_to_verts_list):  
+            for point, gt_sem_mask, pred_sem_mask, rec_point, seg_to_verts in zip(points, gt_sem_masks_list, pred_sem_masks, rec_points, seg_to_verts_list):  
+                # pdb.set_trace()
+                # this_tree = cKDTree(point_temp.cpu().clone().numpy())
                 this_tree = cKDTree(point)
+                # this_labels = self.nearest_neighbor_interpolation(this_tree, rec_point, pred_sem_mask.squeeze(1).long())
                 this_labels = self.nearest_neighbor_interpolation(this_tree, rec_point, pred_sem_mask)
-
-                for object_id, segs in object_id_to_segs.items():
-                    for seg in segs:
-                        verts = seg_to_verts[seg]
-                        this_labels[verts] = torch.tensor(np.bincount(this_labels[verts].numpy()).argmax())
-
+                for seg in seg_to_verts.keys():
+                    verts = seg_to_verts[seg]
+                    this_labels[verts] = np.bincount(this_labels[verts].numpy().astype(np.int64)).argmax()
+                    # this_labels[verts] = torch.tensor(np.bincount(this_labels[verts].numpy().astype(np.int64)).argmax().astype(np.float64))
+                # sem_res.append(this_labels)
+            
+                # this_tree_reverse = cKDTree(rec_point)
+                # this_labels_reverse = self.nearest_neighbor_interpolation(this_tree_reverse, point, this_labels)
+                # # pred_res = this_labels_reverse
+                # sem_res.append(this_labels_reverse)
+                # pdb.set_trace()
                 sample = np.random.choice(this_labels.shape[0], 100000, replace=True)
                 this_labels = this_labels[sample]
                 gt_sem_mask = gt_sem_mask[sample]
+                # pdb.set_trace()
                 pred_sem_masks_interpolation.append(this_labels)
+                # gt_sem_masks_new.append(gt_sem_mask)
                 gt_sem_masks_new.append(torch.tensor(gt_sem_mask.astype(np.int64)))
+
+                # this_labels = self.nearest_neighbor_interpolation(this_tree, rec_point, gt_sem_masks[0])
+                # for seg in seg_to_verts.keys():
+                #     verts = seg_to_verts[seg]
+                #     this_labels[verts] = np.bincount(this_labels[verts].numpy().astype(np.int64)).argmax()
+                #     # this_labels[verts] = torch.tensor(np.bincount(this_labels[verts].numpy().astype(np.int64)).argmax().astype(np.float64))
+                # # sem_res.append(this_labels)
             
+                # this_tree_reverse = cKDTree(rec_point)
+                # this_labels_reverse = self.nearest_neighbor_interpolation(this_tree_reverse, point, this_labels)
+                # gt_res.append(this_labels_reverse)
             pred_sem_masks = pred_sem_masks_interpolation
             gt_sem_masks = gt_sem_masks_new
-        
+
+        # pdb.set_trace()
+        # for i in range(len(points)):
+        #     scene_name = self.data_infos[i]['point_cloud']['lidar_idx']
+        #     np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis/point_312/%s.npy'%(scene_name),points[i])
+
+        # pdb.set_trace()
+        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis/scene0144_00/sem/x.npy',sem_res[0].numpy())
         ret_dict = multiview_seg_eval(
             gt_sem_masks,
             pred_sem_masks,
