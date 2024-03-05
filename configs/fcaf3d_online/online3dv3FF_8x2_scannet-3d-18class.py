@@ -93,7 +93,7 @@ test_pipeline = [
 ]
 
 
-evaluator_mode = 'slice_len_constant'
+evaluator_mode = 'slice_num_constant'
 num_slice = 1
 len_slice = 5
 
