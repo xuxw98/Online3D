@@ -3,8 +3,8 @@ _base_ = [
 ]
 
 # dataset settings
-dataset_type = 'SceneNNMVSegDataset' # TODO: may need to provide resampled scene_idx
-data_root = './data/scenenn-mv1/'
+dataset_type = 'SceneNNMVSegDataset' 
+data_root = './data/scenenn-mv/'
 class_names = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
                'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
                'curtain', 'refrigerator', 'sink')
@@ -27,7 +27,6 @@ model = dict(type='MinkUnetSemsegFF_Online',
     num_slice=num_slice,
     len_slice=len_slice,
     img_backbone=dict(type='Resnet_Unet_Backbone',),
-    # img_memory=dict(type='ImgMemory', in_channels=32),
     img_memory=dict(type='MultilevelImgMemory', in_channels=[64, 128, 256, 512], ada_layer=(2,3), semseg=True),
     backbone=dict(type='MinkUNet34C_SemsegFF', in_channels=3, out_channels=20, D=3),
     memory=dict(type='MultilevelMemory', in_channels=[32, 64, 128, 256], vmp_layer=(0,1,2,3)),
@@ -165,7 +164,6 @@ eval_pipeline = [
 ]
 
 data = dict(
-    # 8 8
     samples_per_gpu=8,
     workers_per_gpu=8,
     train=dict(    
