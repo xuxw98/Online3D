@@ -284,51 +284,19 @@ def get_3d_bbox_new(xyzrgb):
             cur_tmp_xyz = np.empty([0,3])
         else:
             cur_tmp_xyz = xyz[mask_]
-        # if cur_tmp_xyz.shape[0] > 100:
-        #     # save_path =  os.path.join('/home/ubuntu/xxw/SmallDet/mmdetection3d/dataset/OVD_sv_real_gt/OVD_sv_real_gt_train', "%s_pc_before_%s.obj"%(name,ins))
-        #     # _write_obj(cur_tmp_xyz,  save_path)
-        ###剔除离群点
+                    
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(cur_tmp_xyz)
-        res = pcd.remove_statistical_outlier(20, 0.5)   #统计法
-        # res = pcd.remove_radius_outlier(nb_points=10, radius=0.05)#半径方法剔除
+        res = pcd.remove_statistical_outlier(20, 0.5)  
+        # res = pcd.remove_radius_outlier(nb_points=10, radius=0.05)
         cur_tmp_xyz = np.asarray(res[0].points)
-
-            # ###DBSCAN聚类
-            # db = DBSCAN(eps=0.1, min_samples=100).fit(cur_tmp_xyz)
-            # # ic(np.unique(db.labels_))
-            # clusters = []
-            # max_mask = np.unique(db.labels_)
-            # for i, cluster in enumerate(np.unique(db.labels_)):
-            #     if cluster < 0:
-            #         max_mask[i] = 0
-            #         clusters.append(np.array([0]))
-            #         continue
-                
-            #     cluster_ind = np.where(db.labels_ == cluster)[0]
-            #     max_mask[i] = cluster_ind.shape[0]
-            #     clusters.append(cluster_ind)
-            #     # if cluster_ind.shape[0] / cur_tmp_xyz.shape[0] < 0.1 or cluster_ind.shape[0] <= 100:
-            #     #     continue
-                
-            # if clusters[np.argmax(max_mask)].shape[0] > 100 and clusters[np.argmax(max_mask)].shape[0] / cur_tmp_xyz.shape[0] > 0.1:
-            #     cur_tmp_xyz = cur_tmp_xyz[clusters[np.argmax(max_mask)],:]
-            # # cur_tmp_xyz = cur_tmp_xyz[cluster_ind,:]
-            # # if name == 'scene0000_00_000900' and ins == 4:
-            # #     save_path =  os.path.join('/home/ubuntu/xxw/SmallDet/mmdetection3d/dataset/OVD_sv_real_gt/OVD_sv_real_gt_train', "%s_pc_after_%s.obj"%(name,ins))
-            # #     _write_obj(cur_tmp_xyz,  save_path)
-            # #     ic('okkkk!!!!!!')
-            # # ic(cur_tmp_xyz.shape, ins)
-              
             
-        if cur_tmp_xyz.shape[0] > 150:   #200的效果目前2好    ##先过离群点过滤，再150更好
+        if cur_tmp_xyz.shape[0] > 150:
             cur_bbox_3d = np.zeros(7)
             cur_bbox_3d[:7] = compute_bbox_aabb(cur_tmp_xyz)[0,:7]
             instance_valid[ins] = True
             bboxes.append(torch.Tensor(cur_bbox_3d))
-            
-        # else:
-        #     continue
+   
 
     if len(bboxes) != 0:
         bboxes = torch.stack(bboxes, dim=0)
@@ -594,29 +562,11 @@ def process_cur_scan(cur_scan):
             pc_name = "%s_%s_ins_label"%(scan_name,rgb_map_name_no)
             np.save(os.path.join(TARGET_DIR,pc_name),ins_label)
 
-            # pc_name = "%s_%s_pc.txt"%(scan_name,rgb_map_name_no)
-            # np.savetxt(os.path.join(TARGET_DIR,pc_name),xyzrgb[:,:6],fmt="%.3f")
-
             pose_name = "%s_%s_pose.txt"%(scan_name,rgb_map_name_no)
             
-            # pose[:3,3] -= pose[:3,3]
             pose[:3,3] -= xyz_offset
             np.savetxt(os.path.join(TARGET_DIR,pose_name),pose,fmt="%.5f")
 
-            # pc_name = "%s_%s_pc_50k.txt"%(scan_name,rgb_map_name_no)
-            # np.savetxt(os.path.join(TARGET_DIR,pc_name),xyzrgb[:,:6],fmt="%.3f")
-            # exit()
-            
-            '''
-            for box in bbox_3d:
-                label_no = box[7]
-                if class2type_semseg[label_no] not in num_dict.keys():
-                    num_dict[class2type_semseg[label_no]] = 1
-                else:
-                    num_dict[class2type_semseg[label_no]] += 1
-            else:
-            continue
-            '''
 
 def make_split(path_dict, split="train"):
     DATA_PATH = path_dict["DATA_PATH"]
@@ -645,17 +595,6 @@ def make_split(path_dict, split="train"):
         multi_process_parameter.append(cur_parameter)
 
         process_cur_scan(cur_parameter)
-
-    # pool = multiprocessing.Pool(10)
-    # pool.map(process_cur_scan, multi_process_parameter)
-
-    # pool.close()
-    # pool.join()
-
-
-    # for cur_scan in multi_process_parameter:
-    #    process_cur_scan(cur_scan)
-
 
 
 def main():
