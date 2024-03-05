@@ -1,14 +1,10 @@
-### Processed ScanNet 2D Data
-The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/).Run `cat 2D.tar.* > 2D.tar` to merge the files.  
-Then skip the following step 2 and step 3. 
-
-
 ### Prepare ScanNet-MV data for online tuning
 
-**Step 1.** Download ScanNet v2 data [HERE](https://github.com/ScanNet/ScanNet). Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
-Link or move the 'scans' and 'meta_data' folder to this level of directory. 
+**Step 1.** 
+For ScanNet 2D data, the processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
 
-**Step 2.** 
+Or you can process ScanNet 2D data yourself by following the steps below.
+
 For 2D source data, run:
 ```
 python download-scannet.py -o <ScanNet root> --type .sens
@@ -25,20 +21,23 @@ Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose stru
 └── scenexxxx_xx_2d-instance/instance/xxxxxx.png
 ```
 
-Link or move the '2D_info' folder to this level of directory. 
+Link the '2D_info' folder to this level of directory. 
 
- **Step 3.** 
-Process 2D data by:
+Then Process 2D data by:
 ```
 python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_map_file ./meta_data/scannetv2-labels.combined.tsv --scene_index_file ./meta_data/scannet_train.txt
 ```
 
-**Step 4.** Generate online data by:
+
+**Step 2.** Download ScanNet v2 data [HERE](https://github.com/ScanNet/ScanNet). Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
+Link or move the 'scans' folder to this level of directory. 
+
+Then generate online data by:
 ```
 python generate_online_data.py
 ```
 
-**Step 5.** Generate .pkl files by:
+**Step 3.** Generate .pkl files by:
 ```
 python tools/create_data.py scannet --root-path ./data/scannet-mv --out-dir ./data/scannet-mv --extra-tag scannet_mv
 ```
@@ -54,6 +53,7 @@ scannet-mv
 ├── scannet_utils.py
 ├── README.md
 ├── scans/
+├── 2D_info/
 ├── 2D
 │   ├── scenexxxx_xx
 │   │   ├── color
