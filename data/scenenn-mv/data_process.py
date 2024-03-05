@@ -22,8 +22,8 @@ import os
 
 valid_sequence = ['015', '005', '030', '054', '322', '263', '243', '080', '089', '093', '096', '011']
 train_sequence = ['005', '700', '207', '073', '337', '240', '237', '205', '263', '276', '014', '089', '021', '613', '260', '279', '528', '234', '096', '286', '041', '521', '217', '066', '036', '011', '065', '322', '607', '209', '255', '069', '265', '272', '092', '032', '025', '610', '054', '047', '225', '202', '076', '057', '527', '060', '273', '252', '080', '201', '231', '311', '270', '016', '251', '109', '078', '213', '227', '622', '030', '082', '294', '611', '522', '074', '087', '086', '061', '052', '623', '621', '084', '043', '062', '243', '246', '524', '098', '249', '038', '308', '609', '206', '223']
-image_folder = '/Online3D/scenenn/oni/'
-trajectory_folder = 'Online3D/scenenn/oni/trajectory/'
+image_folder = './data/scenenn-mv'
+trajectory_folder = './data/scenenn-mv/trajectory/'
 fx = 544.47329
 fy = 544.47329
 cx = 320
@@ -103,7 +103,7 @@ image_std = np.zeros(3)
 image_add = 0.0
 pair_list = []
 
-label_map_file = '/Online3D/scenenn/oni/scannetv2-labels.combined.tsv'
+label_map_file = './data/scenenn-mv/scannetv2-labels.combined.tsv'
 label_map = scannet_utils.read_label_mapping(label_map_file,
     label_from='raw_category', label_to='nyu40id')    
 
