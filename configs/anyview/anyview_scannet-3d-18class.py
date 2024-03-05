@@ -1,7 +1,7 @@
 _base_ = ['../_base_/default_runtime.py']
 
 dataset_type = 'ScanNetMVDataset'
-data_root = './data/scannet-mv1/'
+data_root = './data/scannet-mv/'
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',
                'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
