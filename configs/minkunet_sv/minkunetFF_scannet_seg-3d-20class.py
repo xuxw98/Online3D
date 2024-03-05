@@ -3,8 +3,8 @@ _base_ = [
 ]
 
 # dataset settings
-dataset_type = 'ScanNetSVSegDataset' # TODO: may need to provide resampled scene_idx
-data_root = './data/scannet-sv1/'
+dataset_type = 'ScanNetSVSegDataset' 
+data_root = './data/scannet-sv/'
 class_names = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table',
                'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
                'curtain', 'refrigerator', 'showercurtrain', 'toilet', 'sink',
@@ -54,8 +54,6 @@ train_pipeline = [
     dict(
         type='Resize',
         img_scale=[(1333, 600)],
-        # img_scale=[(1333, 480), (1333, 504), (1333, 528), (1333, 552),
-        #           (1333, 576), (1333, 600)],
         multiscale_mode='value',
         keep_ratio=True),
     dict(type='Normalize', **img_norm_cfg),
