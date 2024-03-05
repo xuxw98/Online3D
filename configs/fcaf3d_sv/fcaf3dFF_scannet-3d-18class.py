@@ -14,7 +14,7 @@ model = dict(
         loss_bbox=dict(with_yaw=False)))
 
 dataset_type = 'ScanNetSVDataset'
-data_root = './data/scannet-sv1/'
+data_root = './data/scannet-sv/'
 class_names = ('cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window',
                'bookshelf', 'picture', 'counter', 'desk', 'curtain',
                'refrigerator', 'showercurtrain', 'toilet', 'sink', 'bathtub',
