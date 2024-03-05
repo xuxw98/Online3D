@@ -54,7 +54,7 @@ train_pipeline = [
                                 'gt_bboxes_3d', 'gt_labels_3d', 'img'])
     # dict(type='Collect3D', keys=['points', 'gt_bboxes_3d', 'gt_labels_3d', 'img'])
 ]
-# need to confirm parameters
+
 test_pipeline = [
     dict(
         type='LoadAdjacentViewsFromFiles',
