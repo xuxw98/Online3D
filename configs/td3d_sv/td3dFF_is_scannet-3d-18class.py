@@ -51,9 +51,6 @@ model = dict(
         iou_thr=.4,
         score_thr=.15,
         binary_score_thr=0.2))
-# To avoid gpu memory problems during validation callback, 
-# set score_thr to 0.15 and nms_pre to 100 in configs before training 
-# (then return them to their original values during testing):
 
 optimizer = dict(type='AdamW', lr=0.001, weight_decay=0.0001)
 optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))
@@ -76,7 +73,7 @@ resume_from = None
 workflow = [('train', 1)]
 
 dataset_type = 'ScanNetSVInstanceSegV2Dataset'
-data_root = './data/scannet-sv1/'
+data_root = './data/scannet-sv/'
 
 train_pipeline = [
     dict(
@@ -101,8 +98,6 @@ train_pipeline = [
         keep_ratio=True),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
-    #dict(
-    #    type='GlobalAlignment', rotation_axis=2),
     dict(
         type='PointSample', num_points=n_points),
     dict(
@@ -115,12 +110,6 @@ train_pipeline = [
         sync_2d=False,
         flip_ratio_bev_horizontal=0.5,
         flip_ratio_bev_vertical=0.5),
-    #dict(
-    #    type='Elastic'),
-    #dict(
-    #    type='MiniMosaic',
-    #    remaining_points_thr=0.3,
-    #    n_src_points=n_points),
     dict(
         type='GlobalRotScaleTransV2',
         rot_range_z=[-3.14, 3.14],
