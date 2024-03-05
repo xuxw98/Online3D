@@ -1,4 +1,4 @@
-Pretrained image backbone checkpoints can be downloaded [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/).
+Pretrained image backbone checkpoints can be downloaded [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Move 
 
 Train and evaluate MinkUNet on ScanNet-SV:
 ```
