@@ -229,11 +229,6 @@ def multiview_instance_seg_eval_v2(
                 gt_sparse_feature = torch.cat([gt_instance_mask_slice.unsqueeze(1), gt_semantic_mask_slice.unsqueeze(1)], dim=1).to(device)
                 pred_sparse_feature = pred_instance_mask_slice.float().to(device)
 
-                # del gt_instance_mask_slice
-                # del gt_semantic_mask_slice
-                # del pred_instance_mask_slice
-                # del point_slice
-
                 t15 = time.time() - t1
                 print('stage1.5 %.1f sec'%t15,end="  ")
                 t15 = time.time()
@@ -248,17 +243,6 @@ def multiview_instance_seg_eval_v2(
                     quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_SUM
                 )
                 print('vNum:%d'%(pred_sparse.coordinates.shape[0]),end="  ")
-
-                # # Visualize
-                # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_voxel_data/points_%s.npy'%(scene_idx), sparse_tensor_coordinates[:,1:].cpu().numpy())
-                # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_voxel_data/gt_semantic_masks_%s.npy'%(scene_idx), gt_sparse_feature[:,1].cpu().numpy())
-                # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_voxel_data/gt_instance_masks_%s.npy'%(scene_idx), gt_sparse_feature[:,0].cpu().numpy())
-                # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_voxel_data/pred_instance_masks_%s.npy'%(scene_idx), pred_sparse_feature.cpu().numpy())
-
-                # del sparse_tensor_coordinates
-                # del gt_sparse_feature
-                # del pred_sparse_feature
-                # torch.cuda.empty_cache()
 
                 t2 = time.time() - t15
                 print('stage2 %.1f sec'%t2,end="  ")
