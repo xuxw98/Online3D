@@ -39,9 +39,6 @@ class FusionAwareFuseConv(nn.Module):
         ckpt_path = './mmdet3d/models/fs_conv/model3d.pth'
         ckpt = torch.load(ckpt_path)
         load_state_dict(self, ckpt, strict=False)
-        # for param in self.parameters():
-        #     param.requires_grad = False
-        # self.eval()
 
 
     def forward(self, feature2d,points, pre_result):
