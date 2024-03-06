@@ -360,20 +360,7 @@ class MultiViewFormatBundle3D(DefaultFormatBundle):
             results['modal_box'] = DC([res.tensor for res in results['modal_box']], cpu_only=True, stack=False)
         if 'modal_label' in results:
             results['modal_label'] = DC([to_tensor(res) for res in results['modal_label']], stack=False)
-        # if 'amodal_box' in results:
-        #     if isinstance(results['amodal_box'], BaseInstance3DBoxes):
-        #         results['amodal_box'] = DC(
-        #             results['amodal_box'], cpu_only=True, stack=False)
-        #     else:
-        #         results['amodal_box'] = DC(
-        #             to_tensor(results['amodal_box']), stack=False)
-        # if 'amodal_label' in results:
-        #     if isinstance(results['amodal_label'], list):
-        #         results['amodal_label'] = DC([to_tensor(res) for res in results['amodal_label']], stack=False)
-        #     else:
-        #         results['amodal_label'] = DC(to_tensor(results['amodal_label']), stack=False)
-                
-
+       
         if self.with_gt:
 
             # Clean GT bboxes in the final
