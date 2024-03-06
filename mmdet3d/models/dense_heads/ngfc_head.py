@@ -450,9 +450,6 @@ class NgfcAssigner:
         points = points.unsqueeze(1).expand(n_points, n_boxes, 3)
         face_distances = get_face_distances(points, boxes)
         inside_box_condition = face_distances.min(dim=-1).values > 0
-        # print(gt_bboxes.tensor)
-        # for i in range(n_levels):
-        #     print(i, inside_box_condition[levels == i].sum(dim=0))
 
         # condition 2: positive points per level >= limit
         # calculate positive points per level
