@@ -12,11 +12,6 @@ from mmdet3d.core.bbox.structures import rotation_3d_in_axis
 # from mmdet3d.ops.pcdet_nms import pcdet_nms_gpu, pcdet_nms_normal_gpu
 from mmcv.ops import nms3d, nms3d_normal
 from mmcv.ops.knn import knn
-# from mmdet3d.ops.knn import knn
-
-# from mmdet3d.models.voxel_encoders import DynamicVFE
-# from mmdet3d.models.voxel_encoders.dynamic_vfe_v2 import DynamicVFEv2
-
 
 @HEADS.register_module()
 class SegGroup3DHeadDDR(nn.Module):
@@ -73,7 +68,6 @@ class SegGroup3DHeadDDR(nn.Module):
         self.test_cfg = test_cfg
         self.pts_threshold = pts_threshold
         self.semantic_threshold = semantic_threshold
-        # self.thres_topk = thres_topk
         self.n_classes = n_classes
         self.voxel_size_list = [[0.2309, 0.2435, 0.2777],
                                 [0.5631, 0.5528, 0.3579],
@@ -165,11 +159,7 @@ class SegGroup3DHeadDDR(nn.Module):
     def _init_layers(self, in_channels, out_channels, n_reg_outs, n_classes):
         # neck layers
         self.pruning = ME.MinkowskiPruning()
-        # for i in range(len(in_channels)):
-        #     if i > 0:
-        #         self.__setattr__(f'up_block_{i}', self._make_up_block(in_channels[i], in_channels[i - 1]))
 
-        #     self.__setattr__(f'out_block_{i}', self._make_block(in_channels[i], out_channels))
         self.__setattr__(f'offset_block', self._make_offset_block(out_channels))
         self.__setattr__(f'feature_offset', self._make_block(out_channels, out_channels))
 
@@ -199,28 +189,7 @@ class SegGroup3DHeadDDR(nn.Module):
         outs = []
         semantic_input, inputs = x[-2], x[-1]
         out = semantic_input
-        # inputs = x
-        # x = inputs[-1]
-
-        decode_out = [inputs[3], inputs[2], inputs[1], semantic_input]
-        # for i in range(len(inputs) - 1, -1, -1):
-        #     if i < len(inputs) - 1:
-        #         x = self.__getattr__(f'up_block_{i + 1}')[0](x, inputs[i].coordinate_map_key)
-        #         x = self.__getattr__(f'up_block_{i + 1}')[1](x)
-        #         x = inputs[i] + x
-
-        #     out_ = self.__getattr__(f'out_block_{i}')(x)
-        #     decode_out.append(out_)
-        #     if i == 0:
-        #         curr_coordinates = out.C.float()
-        #         semantic_features = out.F.clone()
-        #         for level in range(3):
-        #             interpolate_feats = decode_out[level].features_at_coordinates(curr_coordinates).clone()
-        #             semantic_features += interpolate_feats
-        #         semantic_input = ME.SparseTensor(features=semantic_features,
-        #                                          # coordinates=out.C,
-        #                                          coordinate_map_key=out.coordinate_map_key,
-        #                                          coordinate_manager=out.coordinate_manager)
+        
         if self.use_fusion_feat:
             decode_out[-1] = semantic_input
         semantic_scores = self.semantic_conv(semantic_input)
