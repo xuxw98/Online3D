@@ -90,30 +90,6 @@ class TD3DInstanceSegmentorFF_Online(Base3DDetector):
         self.head.init_weights()
 
 
-    def view_model_param(self):
-        total_param = 0
-        print("MODEL DETAILS:\n")
-        #print(model)
-        for param in self.parameters():
-            # print(param.data.size())
-            total_param += np.prod(list(param.data.size()))
-        print('MODEL/Total parameters:', total_param)
-        
-        # 假设每个参数是一个 32 位浮点数（4 字节）
-        bytes_per_param = 4
-        
-        # 计算总字节数
-        total_bytes = total_param * bytes_per_param
-        
-        # 转换为兆字节（MB）和千字节（KB）
-        total_megabytes = total_bytes / (1024 * 1024)
-        total_kilobytes = total_bytes / 1024
-
-        print("Total parameters in MB:", total_megabytes)
-        print("Total parameters in KB:", total_kilobytes)
-        return total_param
-
-
     
     def extract_feat(self, points, img, img_metas, targets=None, mode='train', ts=0):
         """Extract features from points.
@@ -252,12 +228,6 @@ class TD3DInstanceSegmentorFF_Online(Base3DDetector):
                     amodal_boxes.append(gt_bboxes_3d[j][amodal_box_mask[j][i]])
                     assert (modal_label[j][i] == gt_labels_3d[j][amodal_box_mask[j][i]]).all()
 
-                # cnt = 0
-                # for k in range(amodal_box_mask[j][i].shape[0]):
-                #     if amodal_box_mask[j][i][k] == True:
-                #         label_db[j][k] = modal_label[j][i][cnt]
-                #         cnt = cnt + 1
-                # all_labels.append(label_db[j][label_db[j]!=-1])
                 all_amodal_box_mask = (amodal_box_mask[j][:i+1].sum(dim=0)>=1)
                 all_amodal_boxes.append(gt_bboxes_3d[j][all_amodal_box_mask])
                 all_labels.append(gt_labels_3d[j][all_amodal_box_mask])
@@ -291,12 +261,6 @@ class TD3DInstanceSegmentorFF_Online(Base3DDetector):
             cur_points = [torch.cat([p, torch.unsqueeze(inst, 1), torch.unsqueeze(sem, 1)], dim=1) for p, inst, sem in zip(current_points, current_pts_instance_mask, current_pts_semantic_mask)]
             cur_field = self.collate(cur_points, ME.SparseTensorQuantizationMode.RANDOM_SUBSAMPLE)
             xf = cur_field.sparse()
-            # cur_targets = x.features[:, 3:]
-            # voxel
-            # u can pick it out
-            # x[0]  curtargets also need to be x[5] just avoid neck and it's ok  
-            # it's done
-            # VMP
             x = ME.SparseTensor(
                 xf.features[:, :3],
                 coordinate_map_key=xf.coordinate_map_key,
@@ -327,7 +291,6 @@ class TD3DInstanceSegmentorFF_Online(Base3DDetector):
         Returns:
             list[dict]: Predicted 3d instances.
         """
-        # self.view_model_param()
         # Benchmark
         timestamps = []
         if self.evaluator_mode == 'slice_len_constant':
@@ -366,11 +329,6 @@ class TD3DInstanceSegmentorFF_Online(Base3DDetector):
                 current_feats = self.extract_feat(x, torch.stack(current_img, dim=0), img_metas, mode='test', ts=j)
                 all_points = [scene_points[ts_start: j+1].view(-1, 6) for scene_points in points]
                 
-                # for bbox
-                # bbox_list, bbox_data_list = self.head.forward_test(current_feats, (self.collate, all_points), bbox_data_list, True, img_metas)
-                # bboxes, scores, labels = bbox_list[0]
-                # instances_results[0].append(bbox3d2result(bboxes, scores, labels))
-
                 if j == ts_end - 1:
                     instances, bbox_data_list = self.head.forward_test(current_feats, (self.collate, all_points), bbox_data_list, True, img_metas)
                     results = []
