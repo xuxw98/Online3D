@@ -180,52 +180,6 @@ class Model3DETR_SepView(Base3DDetector):
         self.num_slice=num_slice
         self.len_slice=len_slice
 
-    def view_model_param(self):
-        total_param = 0
-        print("MODEL DETAILS:\n")
-        #print(model)
-        for param in self.parameters():
-            # print(param.data.size())
-            total_param += np.prod(list(param.data.size()))
-        # for param in self.pre_encoder.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        # for param in self.encoder.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        # for param in self.encoder_to_decoder_projection.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        # for param in self.enc_projection.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        # for param in self.query_projection.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        # for param in self.decoder.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        # for param in self.mlp_heads.parameters():
-        #     # print(param.data.size())
-        #     total_param += np.prod(list(param.data.size()))
-        print('MODEL/Total parameters:', total_param)
-        
-        # 假设每个参数是一个 32 位浮点数（4 字节）
-        bytes_per_param = 4
-        
-        # 计算总字节数
-        total_bytes = total_param * bytes_per_param
-        
-        # 转换为兆字节（MB）和千字节（KB）
-        total_megabytes = total_bytes / (1024 * 1024)
-        total_kilobytes = total_bytes / 1024
-
-        print("Total parameters in MB:", total_megabytes)
-        print("Total parameters in KB:", total_kilobytes)
-
-        return total_param
-
-
     def build_mlp_heads(self, decoder_dim, mlp_dropout):
         mlp_func = partial(
             GenericMLP,
@@ -263,10 +217,6 @@ class Model3DETR_SepView(Base3DDetector):
         query_xyz = gather_operation(xyz_flipped, query_inds.int())
         query_xyz = query_xyz.transpose(1, 2).contiguous()
 
-        # Gater op above can be replaced by the three lines below from the pointnet2 codebase
-        # xyz_flipped = encoder_xyz.transpose(1, 2).contiguous()
-        # query_xyz = gather_operation(xyz_flipped, query_inds.int())
-        # query_xyz = query_xyz.transpose(1, 2)
         pos_embed = self.pos_embedding(query_xyz, input_range=point_cloud_dims)
         query_embed = self.query_projection(pos_embed)
         return query_xyz, query_embed
@@ -294,8 +244,7 @@ class Model3DETR_SepView(Base3DDetector):
 
         pre_enc_xyz = xyz
         pre_enc_features = features
-        # there needs more process
-        # throw
+
         pre_enc_xyz = pre_enc_xyz.view(B, T, PPF, 3)
         valid = (pre_enc_xyz.sum(-1) != 0)
         pre_enc_xyz = pre_enc_xyz + trans.unsqueeze(-2)
@@ -433,15 +382,8 @@ class Model3DETR_SepView(Base3DDetector):
         """
         pass
     def simple_test(self, points, img_metas, *args, **kwargs):
-        # t0 = time.time()
-        # print('Frame:%d'%points[0].shape[0])
-        inputs = {}
-        # all_points = points[0].reshape(-1,points[0].shape[-1])[:,:3]
-        # sample = torch.randint(size=(40000,), high=all_points.shape[0], low=0)
-        # inputs['point_clouds'] = all_points[sample].unsqueeze(0)
-        # inputs['point_cloud_dims_min'] = inputs['point_clouds'].min(dim=1)[0]
-        # inputs['point_cloud_dims_max'] = inputs['point_clouds'].max(dim=1)[0]
-        
+
+        inputs = {}        
         pcs = points[0][:,:,:3].clone().detach().cpu().numpy()
         valid = (pcs.sum(-1) != 0).reshape(-1, 5000, 1)
         trans = np.nan_to_num((pcs * valid).sum(1) / valid.sum(-1).sum(-1, keepdims=True))
@@ -672,24 +614,3 @@ def build_decoder():
     )
     return decoder
 
-
-
-# def build_3detr_sepview(args, dataset_config):
-#     pre_encoder = build_preencoder(args)
-#     encoder = build_encoder(args)
-#     decoder = build_decoder(args)
-#     model = Model3DETR_SepView(
-#         pre_encoder,
-#         encoder,
-#         decoder,
-#         dataset_config,
-#         encoder_dim=args.enc_dim,
-#         decoder_dim=args.dec_dim,
-#         mlp_dropout=args.mlp_dropout,
-#         num_queries=args.nqueries,
-#         DQ_FPS=args.DQ_FPS,
-#         enc_PE=args.enc_PE,
-#         enc_proj=args.enc_proj
-#     )
-#     output_processor = BoxProcessor(dataset_config)
-#     return model, output_processor
