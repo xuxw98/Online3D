@@ -478,11 +478,7 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
             results, list), f'Expect results to be list, got {type(results)}.'
         assert len(results) > 0, 'Expect length of results > 0.'
         assert len(results) == len(self.data_infos)
-        # assert isinstance(
-        #     results[0], dict
-        # ), f'Expect elements in results to be dict, got {type(results[0])}.'
 
-        # maybe need to concatenate
         pred_instance_masks = []
         pred_instance_labels = []
         pred_instance_scores = []
@@ -543,9 +539,7 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
             points = None
             gt_instance_mask = None
             gt_sem_mask = None
-
-
-            
+  
             for j in range(len(gt_instance_mask_all)):
                 points = points_all[j].numpy() if j==0 else np.concatenate([points, points_all[j].numpy()], axis = 0)
                 points_res.append(points)
