@@ -51,12 +51,7 @@ class RandomDropPointsColor(object):
             'color' in points.attribute_dims, \
             'Expect points have color attribute'
 
-        # this if-expression is a bit strange
-        # `RandomDropPointsColor` is used in training 3D segmentor PAConv
-        # we discovered in our experiments that, using
-        # `if np.random.rand() > 1.0 - self.drop_ratio` consistently leads to
-        # better results than using `if np.random.rand() < self.drop_ratio`
-        # so we keep this hack in our codebase
+
         if np.random.rand() > 1.0 - self.drop_ratio:
             points.color = points.color * 0.0
         return input_dict
@@ -142,11 +137,7 @@ class RandomFlip3D(RandomFlip):
             w = input_dict['ori_shape'][1]
             input_dict['centers2d'][..., 0] = \
                 w - input_dict['centers2d'][..., 0]
-            # need to modify the horizontal position of camera center
-            # along u-axis in the image (flip like centers2d)
-            # ['cam2img'][0][2] = c_u
-            # see more details and examples at
-            # https://github.com/open-mmlab/mmdetection3d/pull/744
+
             input_dict['cam2img'][0][2] = w - input_dict['cam2img'][0][2]
 
     def __call__(self, input_dict):
@@ -161,12 +152,8 @@ class RandomFlip3D(RandomFlip):
                 'pcd_horizontal_flip' and 'pcd_vertical_flip' keys are added
                 into result dict.
         """
-        # flip 2D image and its annotations
-        #print('RandomFlip3DBefore',end=" ")
-        #print(type(input_dict['imgs']))
+
         super(RandomFlip3D, self).__call__(input_dict)
-        #print('RandomFlip3DMiddle',end=" ")
-        #print(type(input_dict['imgs']))
         if self.sync_2d:
             input_dict['pcd_horizontal_flip'] = input_dict['flip']
             input_dict['pcd_vertical_flip'] = False
@@ -189,8 +176,6 @@ class RandomFlip3D(RandomFlip):
         if input_dict['pcd_vertical_flip']:
             self.random_flip_data_3d(input_dict, 'vertical')
             input_dict['transformation_3d_flow'].extend(['VF'])
-        #print('RandomFlip3DAfter',end=" ")
-        #print(type(input_dict['imgs']))
         return input_dict
 
     def __repr__(self):
@@ -268,12 +253,8 @@ class RandomFlip3DV2(RandomFlip):
                 'pcd_horizontal_flip' and 'pcd_vertical_flip' keys are added
                 into result dict.
         """
-        # flip 2D image and its annotations
-        #print('RandomFlip3DBefore',end=" ")
-        #print(type(input_dict['imgs']))
+
         super(RandomFlip3DV2, self).__call__(input_dict)
-        #print('RandomFlip3DMiddle',end=" ")
-        #print(type(input_dict['imgs']))
         if self.sync_2d:
             input_dict['pcd_horizontal_flip'] = input_dict['flip']
             input_dict['pcd_vertical_flip'] = False
@@ -296,8 +277,6 @@ class RandomFlip3DV2(RandomFlip):
         if input_dict['pcd_vertical_flip']:
             self.random_flip_data_3d(input_dict, 'vertical')
             input_dict['transformation_3d_flow'].extend(['VF'])
-        #print('RandomFlip3DAfter',end=" ")
-        #print(type(input_dict['imgs']))
         return input_dict
 
     def __repr__(self):
@@ -421,8 +400,7 @@ class RangeLimitedRandomCrop(RandomCrop):
                 bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0, img_shape[0])
             valid_inds = (bboxes[:, 2] > bboxes[:, 0]) & (
                 bboxes[:, 3] > bboxes[:, 1])
-            # If the crop does not contain any gt-bbox area and
-            # allow_negative_crop is False, skip this image.
+
             if (key == 'gt_bboxes' and not valid_inds.any()
                     and not allow_negative_crop):
                 return None
@@ -1075,9 +1053,6 @@ class GlobalRotScaleTransV2(object):
         input_dict['pcd_rotation'] = rot_mat_T_z @ rot_mat_T_x @ rot_mat_T_y
         input_dict['pcd_rotation_angle'] = noise_rotation_z
 
-        # if 'modal_box' in input_dict:
-        #     for i in range(len(input_dict['modal_box'])):
-        #         input_dict['modal_box'][i].rotate(noise_rotation)
 
     def _scale_bbox_points(self, input_dict):
         """Private function to scale bounding boxes and points.
@@ -1220,10 +1195,6 @@ class ObjectRangeFilter(object):
         gt_labels_3d = input_dict['gt_labels_3d']
         mask = gt_bboxes_3d.in_range_bev(bev_range)
         gt_bboxes_3d = gt_bboxes_3d[mask]
-        # mask is a torch tensor but gt_labels_3d is still numpy array
-        # using mask to index gt_labels_3d will cause bug when
-        # len(gt_labels_3d) == 1, where mask=1 will be interpreted
-        # as gt_labels_3d[1] and cause out of index error
         gt_labels_3d = gt_labels_3d[mask.numpy().astype(np.bool)]
 
         # limit rad to [-pi, pi]
@@ -1932,9 +1903,6 @@ class VoxelBasedPointSampler(object):
         points = results['points']
         original_dim = points.shape[1]
 
-        # TODO: process instance and semantic mask while _max_num_points
-        # is larger than 1
-        # Extend points with seg and mask fields
         map_fields2dim = []
         start_dim = original_dim
         points_numpy = points.tensor.numpy()
@@ -1950,10 +1918,7 @@ class VoxelBasedPointSampler(object):
 
         points_numpy = np.concatenate(extra_channel, axis=-1)
 
-        # Split points into two part, current sweep points and
-        # previous sweeps points.
-        # TODO: support different sampling methods for next sweeps points
-        # and previous sweeps points.
+ 
         cur_points_flag = (points_numpy[:, self.time_dim] == 0)
         cur_sweep_points = points_numpy[cur_points_flag]
         prev_sweeps_points = points_numpy[~cur_points_flag]
@@ -2417,8 +2382,6 @@ class MultiViewsBboxRecalculation(object):
             if modal_box_for_each_frame.tensor.shape[0] != 0:
                 pts_instance_mask = pts_instance_mask_all[i,:]
 
-                # pts_instance_mask[pts_instance_mask == 0] = -1
-                # 0
                 if np.all(pts_instance_mask==-1):
                     gt_modal_bboxes.append(input_dict["gt_bboxes_3d"].__class__(torch.zeros(1,7), with_yaw=False, origin=(.5, .5, .5)))
                     gt_modal_labels.append(np.zeros(1).astype('int64'))
@@ -2435,7 +2398,6 @@ class MultiViewsBboxRecalculation(object):
                 pts_instance_mask = torch.tensor(pts_instance_mask).to(torch.int64)
                 if minus_one:
                     pts_instance_mask = pts_instance_mask - 1
-                # np unique
 
                 if torch.sum(pts_instance_mask == -1) != 0:
                     pts_instance_mask[pts_instance_mask == -1] = torch.max(pts_instance_mask) + 1
@@ -2455,10 +2417,6 @@ class MultiViewsBboxRecalculation(object):
                 bboxes_sizes = bboxes_max - bboxes_min
                 bboxes_centers = (bboxes_max + bboxes_min) / 2
                 bboxes = torch.hstack((bboxes_centers, bboxes_sizes, torch.zeros_like(bboxes_sizes[:, :1])))
-                # only for amodal_box now
-                #input_dict["gt_bboxes_3d"] = input_dict["gt_bboxes_3d"].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
-                #input_dict["box"][i] = input_dict["box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
-                #input_dict["amodal_box"][i] = input_dict["amodal_box"][i].__class__(bboxes, with_yaw=False, origin=(.5, .5, .5))
 
                 # new
                 pts_semantic_mask = torch.tensor(pts_semantic_mask_all[i,:])
