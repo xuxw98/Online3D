@@ -324,10 +324,7 @@ class TD3DInstanceHead_Online(BaseModule):
                                            gt_idxs,
                                            boxes_data,
                                            scores_data))
-        # merge mode = 'train'
-        # bbox_data_list generate
-        # x[0] refers to all frame voxel
-        # merge
+
         if len(bbox_data_list) == 0:
             for i in range(len(img_metas)):
                 bbox_data_list.append([])
