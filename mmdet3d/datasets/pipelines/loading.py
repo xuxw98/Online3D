@@ -539,17 +539,7 @@ class LoadPointsFromFile(object):
             points = np.load(pts_filename)
         else:
             points = np.fromfile(pts_filename, dtype=np.float32)
-        # try:
-        #     points = np.load(pts_filename)
-        #     pts_bytes = self.file_client.get(pts_filename)
-        #     points = np.frombuffer(pts_bytes, dtype=np.float32)
-        # except ConnectionError:
-        #     mmcv.check_file_exist(pts_filename)
-        #     if pts_filename.endswith('.npy'):
-        #         points = np.load(pts_filename)
-        #     else:
-        #         points = np.fromfile(pts_filename, dtype=np.float32)
-
+      
         return points
 
     def __call__(self, results):
@@ -799,8 +789,7 @@ class LoadAdjacentViewsFromFiles(object):
             results['poses'] = [(self.transform_matrix @ pose) for pose in poses]
         else:
             results['poses'] = poses
-        # From num_framesx5000x(3+C) to -1x(3+C)
-        # Use 'num_frames' to transform the point clouds back before fed to Detector.
+
         if self.use_ins_sem:
             if 'instance_info' in results:
                 points, semantic, instance = self._load_points_sem_ins(pts_filenames, semantic_filenames, instance_filenames)
@@ -811,8 +800,7 @@ class LoadAdjacentViewsFromFiles(object):
 
         results['num_frames'] = self.num_frames
         results['num_sample'] = self.num_sample
-        # view merge and process together
-        # np.stack just add dimension
+
         if self.use_amodal_points:
             points = np.concatenate([amodal_points, points], axis=0)
             if self.use_ins_sem:
@@ -1001,8 +989,7 @@ class LoadAdjacentViewsFromFiles_FSA(object):
             results['poses'] = [(self.transform_matrix @ pose) for pose in poses]
         else:
             results['poses'] = poses
-        # From num_framesx5000x(3+C) to -1x(3+C)
-        # Use 'num_frames' to transform the point clouds back before fed to Detector.
+
         depth_fsa_list = []
         img_fsa_list = []
         for info in img_filenames:
@@ -1015,15 +1002,7 @@ class LoadAdjacentViewsFromFiles_FSA(object):
                 depth_filename = os.path.join(spilt[0],spilt[1],spilt[2], spilt[3], spilt[4],'depth',spilt[-1][:-3]+'png')            
             img_fsa = io.imread(img_filename).astype(np.int16)
             depth_fsa = io.imread(depth_filename).astype(np.int16)/1000
-            
-            # in_dict = {}
-            # in_dict['filename'] = depth_filename
-            # out_dict = {}
-            # out_dict['img_prefix'] = None
-            # out_dict['img_info'] = in_dict
-            # depth = self.loader(out_dict)
-            # depth = depth['img'][:,:,0]
-            # pdb.set_trace()
+
             depth_fsa_list.append(depth_fsa)
             img_fsa_list.append(img_fsa)
 
@@ -1039,8 +1018,7 @@ class LoadAdjacentViewsFromFiles_FSA(object):
 
         results['num_frames'] = self.num_frames
         results['num_sample'] = self.num_sample
-        # view merge and process together
-        # np.stack just add dimension
+
         points = points[:, self.use_dim]
         attribute_dims = None
 
@@ -1160,13 +1138,10 @@ class LoadAdjacentPointsFromFiles(object):
         results['box_masks'] = box_masks
         results['poses'] = poses
 
-        # From num_framesx5000x(3+C) to -1x(3+C)
-        # Use 'num_frames' to transform the point clouds back before fed to Detector.
-        # TODO: If len(pts_filenames) < self.num_frames, padding points with 0 and assign view_mask to the points.
+
         points = self._load_points(pts_filenames)
         results['num_frames'] = self.num_frames
-        # view merge and process together
-        # np.stack just add dimension
+
         points = points.reshape(-1, self.load_dim)
         points = points[:, self.use_dim]
         attribute_dims = None
@@ -1348,15 +1323,6 @@ class LoadAnnotations3D(LoadAnnotations):
         pts_instance_mask = np.load(pts_instance_mask_path)
         pts_instance_mask = pts_instance_mask.astype('int')
 
-        # if self.file_client is None:
-        #     self.file_client = mmcv.FileClient(**self.file_client_args)
-        # try:
-        #     mask_bytes = self.file_client.get(pts_instance_mask_path)
-        #     pts_instance_mask = np.frombuffer(mask_bytes, dtype=np.int64)
-        # except ConnectionError:
-        #     mmcv.check_file_exist(pts_instance_mask_path)
-        #     pts_instance_mask = np.fromfile(
-        #         pts_instance_mask_path, dtype=np.int64)
 
         results['pts_instance_mask'] = pts_instance_mask
         results['pts_mask_fields'].append('pts_instance_mask')
@@ -1375,18 +1341,6 @@ class LoadAnnotations3D(LoadAnnotations):
 
         pts_semantic_mask = np.load(pts_semantic_mask_path)
         pts_semantic_mask = pts_semantic_mask.astype('int')
-
-        # if self.file_client is None:
-        #     self.file_client = mmcv.FileClient(**self.file_client_args)
-        # try:
-        #     mask_bytes = self.file_client.get(pts_semantic_mask_path)
-        #     # add .copy() to fix read-only bug
-        #     pts_semantic_mask = np.frombuffer(
-        #         mask_bytes, dtype=self.seg_3d_dtype).copy()
-        # except ConnectionError:
-        #     mmcv.check_file_exist(pts_semantic_mask_path)
-        #     pts_semantic_mask = np.fromfile(
-        #         pts_semantic_mask_path, dtype=np.int64)
 
         results['pts_semantic_mask'] = pts_semantic_mask
         results['pts_seg_fields'].append('pts_semantic_mask')
