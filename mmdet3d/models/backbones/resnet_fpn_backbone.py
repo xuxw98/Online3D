@@ -96,7 +96,6 @@ class Resnet_FPN_Backbone(BaseModule):
         bottom_up = ResNet(stem, stages, out_features=out_features, freeze_at=freeze_at)
         in_features = ['res2','res3','res4','res5']
         out_channels = 256
-        # in_channels_p6p7 = bottom_up.output_shape()["res5"].channels
         self.backbone = FPN(
             bottom_up=bottom_up,
             in_features=in_features,
@@ -106,23 +105,15 @@ class Resnet_FPN_Backbone(BaseModule):
             top_block=LastLevelMaxPool(),
             fuse_type='sum',
         )
-        # if img_memory is not None:
-        #     self.img_memory = build_neck(img_memory)
 
     def init_weights(self):
         ckpt_path = './mmdet3d/models/backbones/img_backbone.pth'
         ckpt = torch.load(ckpt_path)
         load_state_dict(self, ckpt['model'], strict=False)
-        # if hasattr(self, 'img_memory'):
-        #     self.img_memory.init_weights()
 
         for param in self.backbone.parameters():
             param.requires_grad = False
         self.backbone.eval()
-    
-    # def reset(self):
-    #     if hasattr(self, 'img_memory'):
-    #         self.img_memory.reset()
 
     def forward(self, x, memory=None):
         """Forward pass of ResNet.
@@ -134,8 +125,6 @@ class Resnet_FPN_Backbone(BaseModule):
             list[ME.SparseTensor]: Output sparse tensors.
         """
         x = self.backbone(x, memory)
-        # if hasattr(self, 'img_memory'):
-        #     x['p2'] = self.img_memory(x['p2'])
         return x
     
 
