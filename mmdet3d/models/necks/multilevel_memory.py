@@ -186,11 +186,6 @@ class MultilevelMemory(BaseModule):
                     branch = self.conv_convert[i](branch)
                     x[i] = branch + x[i]
                     x[i] = self.relu(x[i])
-                    # x[i] = ME.SparseTensor(
-                    #     coordinate_map_key=accumulated_feats[i].coordinate_map_key,
-                    #     features=x[i].features_at_coordinates(accumulated_feats[i].coordinates.float()),
-                    #     tensor_stride=accumulated_feats[i].tensor_stride,
-                    #     coordinate_manager=accumulated_feats[i].coordinate_manager)
             self.accumulated_feats = accumulated_feats
             return x
         else:
@@ -228,13 +223,9 @@ class MultilevelMemory_Insseg(BaseModule):
             ME.SparseTensor: refined accumulated features
             ME.SparseTensor: current features after accumulation
         """
-        # in fact
-        # self.vmp_layer must cover self.conv_layer
         if index in self.vmp_acc_layer:
             # VMP
             tensor_stride = current_feat.tensor_stride
-            # ts
-
             accumulated_feat = ME.TensorField(
                 features=torch.cat([current_feat.features, accumulated_feat.features], dim=0),
                 coordinates=torch.cat([current_feat.coordinates, accumulated_feat.coordinates], dim=0),
@@ -266,7 +257,6 @@ class MultilevelMemory_Insseg(BaseModule):
                 coordinate_manager=accumulated_feat.coordinate_manager
             )
 
-            # must minus 1    acc_tot means how many frames vmp
             if mode == 'train':
                 if (accumulated_ts.features.max() - accumulated_ts.features.min())>=(self.acc_tot-1):
                     mask = (accumulated_ts.features!=accumulated_ts.features.min()).squeeze(1)
