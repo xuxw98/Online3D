@@ -120,7 +120,6 @@ class MinkUnetSemsegFF(Base3DDetector):
         Returns:
             dict: Loss values.
         """
-        # points = [torch.cat([p, torch.unsqueeze(m, 1)], dim=1) for p, m in zip(points, pts_instance_mask)]
         points = [torch.cat([p, torch.unsqueeze(sem, 1)], dim=1) for p, sem in zip(points, pts_semantic_mask)]
         field = self.collate(points, ME.SparseTensorQuantizationMode.RANDOM_SUBSAMPLE)
         x = field.sparse()
@@ -218,7 +217,6 @@ class MinkUnetSemseg(Base3DDetector):
         """
         
         points = [point.reshape(-1,6) for point in points]
-        # points = [torch.cat([p, torch.unsqueeze(m, 1)], dim=1) for p, m in zip(points, pts_instance_mask)]
         points = [torch.cat([p, torch.unsqueeze(sem, 1)], dim=1) for p, sem in zip(points, pts_semantic_mask)]
         field = self.collate(points, ME.SparseTensorQuantizationMode.RANDOM_SUBSAMPLE)
         x = field.sparse()
