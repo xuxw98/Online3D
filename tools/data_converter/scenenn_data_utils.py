@@ -30,8 +30,6 @@ class SceneNNMVData(object):
         return len(self.sample_id_list)
 
     def get_points_images_semantic_poses(self, idx):
-        # if idx == 'scene0191_00':
-        #     pdb.set_trace()
         point_paths = []
         image_paths = []
         semantic_paths = []
@@ -39,12 +37,8 @@ class SceneNNMVData(object):
         path = osp.join(self.root_dir, idx, 'point')
         files = os.listdir(path); files.sort(key=lambda x: int(x.split('/')[-1][:-5]))
         for file in files:
-            # if idx == 'scene0191_00':
-            #     pdb.set_trace()
             frame_id = int(file.split('.')[0])
             if file.endswith('.npy'):
-                # if idx == 'scene0191_00':
-                #     pdb.set_trace()
                 point_paths.append(osp.join(idx,'point', file))
                 image_paths.append(osp.join(idx,'image', 'image'+file.replace('npy','png')))
                 semantic_paths.append(osp.join(idx, 'label', file))
@@ -56,10 +50,6 @@ class SceneNNMVData(object):
         for pose in poses:
             aligned_poses.append(np.dot(axis_align_matrix, pose))
         return aligned_poses
-
-    # Use a unified intrinsics, same for all scenes
-    # def get_intrinsics(self):
-    #     return np.array([[288.9353025,0,159.5,0],[0,288.9353025,119.5,0],[0,0,1,0],[0,0,0,1]])
 
     def get_infos(self, num_workers=4, has_label=True, sample_id_list=None):
         """Get data infos.
@@ -84,10 +74,8 @@ class SceneNNMVData(object):
             pc_info = {'scene_idx': sample_idx}
             info['point_cloud'] = pc_info
 
-            # pts_paths, img_paths, box_masks, poses = self.get_points_images_masks_poses(sample_idx)
             pts_paths, img_paths, semantic_paths, poses = self.get_points_images_semantic_poses(sample_idx)
             axis_align_matrix = np.eye(4)
-            # TODO: check if any path is invalid
             info['poses'] = poses
             info['img_paths'] = img_paths
             info['pts_paths'] = pts_paths
