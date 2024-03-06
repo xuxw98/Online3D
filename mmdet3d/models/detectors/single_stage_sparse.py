@@ -48,33 +48,6 @@ class SingleStageSparse3DDetector(Base3DDetector):
         x = self.neck_with_head(x)
         return x
 
-
-    def view_model_param(self):
-        total_param = 0
-        print("MODEL DETAILS:\n")
-        #print(model)
-        for param in self.parameters():
-            # print(param.data.size())
-            total_param += np.prod(list(param.data.size()))
-        print('MODEL/Total parameters:', total_param)
-        
-        # 假设每个参数是一个 32 位浮点数（4 字节）
-        bytes_per_param = 4
-        
-        # 计算总字节数
-        total_bytes = total_param * bytes_per_param
-        
-        # 转换为兆字节（MB）和千字节（KB）
-        total_megabytes = total_bytes / (1024 * 1024)
-        total_kilobytes = total_bytes / 1024
-
-        print("Total parameters in MB:", total_megabytes)
-        print("Total parameters in KB:", total_kilobytes)
-
-        return total_param
-
-
-
     def forward_train(self,
                       points,
                       gt_bboxes_3d,
