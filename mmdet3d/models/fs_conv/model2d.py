@@ -222,9 +222,6 @@ class FuseNet_feature(nn.Module):
         ckpt_path = './mmdet3d/models/fs_conv/model2d.pth'
         ckpt = torch.load(ckpt_path)
         load_state_dict(self, ckpt, strict=False)
-        # for param in self.parameters():
-        #     param.requires_grad = False
-        # self.eval()
 
     def forward(self, rgb_inputs, depth_inputs):
         # DEPTH ENCODER
