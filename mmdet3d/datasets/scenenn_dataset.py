@@ -168,16 +168,10 @@ class SceneNNMVSegDataset(Custom3DSegDataset):
                 semantic_info.append(
                     dict(filename=osp.join(self.data_root, semantic_path)))
             
-            # depth2img = []
-            # intrinsic = np.array([[288.9353025,0,159.5,0],[0,288.9353025,119.5,0],[0,0,1,0],[0,0,0,1]])
-            # for pose in info['poses']:
-            #     depth2img.append(
-            #         intrinsic @ np.linalg.inv(pose))
             poses = info['poses']
 
             input_dict['pts_info'] = pts_info
             input_dict['img_info'] = img_info
-            #input_dict['depth2img'] = depth2img
             input_dict['poses'] = poses
             input_dict['semantic_info'] = semantic_info
 
@@ -200,11 +194,6 @@ class SceneNNMVSegDataset(Custom3DSegDataset):
             dict: Testing data dict of the corresponding index.
         """
         input_dict = self.get_data_info(index)
-        # take the axis_align_matrix from data_infos
-        # input_dict['ann_info'] = self.get_ann_info(index)
-        # input_dict['ann_info'] = dict(
-        #     axis_align_matrix=self._get_axis_align_matrix(
-        #         self.data_infos[index]))
         self.pre_pipeline(input_dict)
         example = self.pipeline(input_dict)
         return example
@@ -255,11 +244,7 @@ class SceneNNMVSegDataset(Custom3DSegDataset):
                 load_annos=True) for i in range(len(self.data_infos))
         ])
         points = [point.reshape(-1,point.shape[-1])[:,:3] for point in points]
-
-        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/point_0.npy',points[0])
-        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/gt_sem_0.npy',gt_sem_masks[0])
-        # np.save('/home/ubuntu/xxw/Online3D/Online3D/work_dirs/vis_scenenn/pred_sem_0.npy',pred_sem_masks[0])
-            
+  
         if self.use_voxel_eval:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
