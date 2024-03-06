@@ -141,8 +141,6 @@ class MultilevelImgMemory(BaseModule):
                 self.cached[key] = x_reorg[:, :fold]
 
                 ## 2D Aggregation
-                # TODO: remove this relu for both RGB and D
-                # TODO: bottleneck for D
                 x[key] = self.orgback_list[i](self.conv_list[i](out).permute(0,2,3,1).contiguous()). \
                     permute(0,3,1,2).contiguous() + x[key]
         return x
@@ -268,7 +266,5 @@ class ImgMemory(BaseModule):
         self.cached = x_reorg[:, :fold]
 
         ## 2D Aggregation
-        # TODO: remove this relu for both RGB and D
-        # TODO: bottleneck for D
         x = self.orgback(self.conv(out).permute(0,2,3,1).contiguous()).permute(0,3,1,2).contiguous() + x
         return x
