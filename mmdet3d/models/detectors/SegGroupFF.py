@@ -130,11 +130,7 @@ class SegGroupFF(Base3DDetector):
             roi_input_dict['gt_bboxes_3d'] = gt_bboxes_3d
             roi_input_dict['gt_labels_3d'] = gt_labels_3d
             roi_out_dict = self.roi_head(roi_input_dict)
-            # also pred boxes during training for debug
-            # refine_bbox_list = self.roi_head.get_boxes(roi_out_dict, img_metas)
             losses.update(self.roi_head.loss(roi_out_dict))
-            # if len(bbox_list[0][0]) > 10:
-            #     exit()
         else:
             x, semantic_scores, voxel_offset = self.extract_feat(points, img_metas)
             losses = self.neck_with_head.loss(*x, semantic_scores, voxel_offset, gt_bboxes_3d, gt_labels_3d, points, img_metas,
@@ -180,9 +176,5 @@ class SegGroupFF(Base3DDetector):
         semantic_pred = torch.zeros_like(semantic_scores).long().fill_(self.neck_with_head.n_classes)
         for cls_id in range(self.neck_with_head.n_classes):
             cls_selected_id = torch.nonzero(semantic_scores[:, cls_id] > self.neck_with_head.semantic_threshold).squeeze(1)
-            # topk_indices = torch.topk(semantic_scores, self.neck_with_head.thres_topk, -1)[1]
-            # topk_selected_masks = (topk_indices == cls_id).sum(-1).bool()
-            # cls_thres_selected_masks = (semantic_scores[:, cls_id] > self.neck_with_head.semantic_threshold)
-            # cls_selected_id = torch.nonzero((topk_selected_masks & cls_thres_selected_masks)).squeeze(1)
             semantic_pred[cls_selected_id, cls_id] = cls_id
         return semantic_pred
