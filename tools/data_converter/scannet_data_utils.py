@@ -391,8 +391,6 @@ class ScanNetMVData(object):
         return point_paths, image_paths, boxes, amodal_boxes, poses
     
     def get_points_images_instance_semantic_masks_poses(self, idx):
-        # if idx == 'scene0191_00':
-        #     pdb.set_trace()
         point_paths = []
         image_paths = []
         instance_paths = []
@@ -403,12 +401,8 @@ class ScanNetMVData(object):
         path = osp.join(self.root_dir, 'point', idx)
         files = os.listdir(path); files.sort(key=lambda x: int(x.split('/')[-1][:-4]))
         for file in files:
-            # if idx == 'scene0191_00':
-            #     pdb.set_trace()
             frame_id = int(file.split('.')[0])
             if file.endswith('.npy') and (frame_id % self.interval == 0):
-                # if idx == 'scene0191_00':
-                #     pdb.set_trace()
                 point_paths.append(osp.join('point', idx, file))
                 image_paths.append(osp.join('2D', idx, 'color', file.replace('npy', 'jpg')))
                 instance_paths.append(osp.join('instance_mask', idx, file))
@@ -428,9 +422,6 @@ class ScanNetMVData(object):
             aligned_poses.append(np.dot(axis_align_matrix, pose))
         return aligned_poses
 
-    # Use a unified intrinsics, same for all scenes
-    # def get_intrinsics(self):
-    #     return np.array([[288.9353025,0,159.5,0],[0,288.9353025,119.5,0],[0,0,1,0],[0,0,0,1]])
 
     def get_infos(self, num_workers=4, has_label=True, sample_id_list=None):
         """Get data infos.
@@ -455,17 +446,14 @@ class ScanNetMVData(object):
             pc_info = {'num_features': 6, 'lidar_idx': sample_idx}
             info['point_cloud'] = pc_info
 
-            # pts_paths, img_paths, box_masks, poses = self.get_points_images_masks_poses(sample_idx)
             pts_paths, img_paths, instance_paths, semantic_paths, modal_boxes, amodal_box_masks, poses = self.get_points_images_instance_semantic_masks_poses(sample_idx)
             axis_align_matrix = self.get_axis_align_matrix(sample_idx)
             poses = self.align_poses(axis_align_matrix, poses)
-            # TODO: check if any path is invalid
             info['poses'] = poses
             info['img_paths'] = img_paths
             info['pts_paths'] = pts_paths
             info['instance_paths'] = instance_paths
             info['semantic_paths'] = semantic_paths
-            # info['box_masks'] = box_masks
             scene_amodal_boxes = np.load(osp.join(self.root_dir, 'scene_amodal_box', '%s.npy'%(sample_idx)))
 
 
@@ -548,14 +536,9 @@ class ScanNetSVData(object):
             nyu40id: i
             for i, nyu40id in enumerate(list(self.cat_ids))
         }
-        # assert split in ['train', 'val', 'test']
-        # split_file = osp.join('/data1/SCANNET',
-        #                       f'scannetv2_{split}.txt')
         assert split in ['train', 'val', 'test']
         split_file = osp.join(self.root_dir, 'meta_data',
                               f'scannetv2_{split}.txt')
-        # split_file = osp.join("/data1/SCANNET",
-        #                       f'scannetv2_{split}.txt')
         mmcv.check_file_exist(split_file)
         self.sample_id_list =  sorted(
                 list(
@@ -578,16 +561,7 @@ class ScanNetSVData(object):
         paths = []
         path = osp.join('scannet_sv_18cls_%s'%self.split, f'{idx}.jpg')
         return path
-        # img = cv2.imread(path)
-        # img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        # img = img_norm(img)
 
-        # image = np.zeros([968,1296,3], dtype=np.float32)
-        # img_width = img.shape[1]
-        # img_height = img.shape[0]
-        # image_size = np.array([img_width, img_height])
-        # image[:img_height, :img_width, :3] = img
-        # return image, image_size
 
     def make_intrinsic(self, fx, fy, mx, my):
         intrinsic = np.eye(4)
