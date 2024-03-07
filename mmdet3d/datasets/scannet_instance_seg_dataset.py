@@ -454,6 +454,7 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
                  logger=None,
                  show=False,
                  out_dir=None,
+                 scene_name=None,
                  pipeline=None):
         """Evaluation in instance segmentation protocol.
 
@@ -500,6 +501,10 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
         ])
         
         use_voxel_eval = False
+
+        if show:
+            self.show(results, out_dir, scene_name)
+            
         ret_dict = multiview_instance_seg_eval_v2(
             points,
             [gt_semantic_masks[i].reshape(points[i].shape[0], points[i].shape[1]).int() for i in range(len(points))],
@@ -518,57 +523,45 @@ class ScanNetMVInstanceSegV2Dataset(ScanNetMVDataset):
             voxel_size=0.02,
             use_voxel_eval=use_voxel_eval)
 
-        if show:
-            self.show(results, out_dir)
 
         return ret_dict
 
-    def show(self, results, out_dir, show=True, pipeline=None):
+    def show(self, results, out_dir, scene_name=None, show=True, pipeline=None):
+        f = open('./data/scannet-mv/meta_data/scannetv2_val.txt', 'r')
+        scene_names = f.readlines()
+        for idx in range(len(scene_names)):
+            if scene_name == scene_names[idx][:-1]:
+                break
+        assert idx < len(results), 'No expected scene in results'
         assert out_dir is not None, 'Expect out_dir, got none.'
         load_pipeline = self._build_default_pipeline()
-        for i, result in enumerate(results):
-            data_info = self.data_infos[i]
-            pts_path = data_info['pts_path']
-            file_name = osp.split(pts_path)[-1].split('.')[0]
-            points_all, gt_instance_mask_all, gt_sem_mask_all = self._extract_data(
-                i, load_pipeline, ['points', 'pts_instance_mask', 'pts_semantic_mask'], load_annos=True)
-            points_res = []
-            gt_instance_mask_res = []
-            pred_instance_masks_label_res = []
-            palette_res = []
-            points = None
-            gt_instance_mask = None
-            gt_sem_mask = None
-  
-            for j in range(len(gt_instance_mask_all)):
-                points = points_all[j].numpy() if j==0 else np.concatenate([points, points_all[j].numpy()], axis = 0)
-                points_res.append(points)
-                gt_instance_mask = gt_instance_mask_all[j] if j==0 else np.concatenate([gt_instance_mask, gt_instance_mask_all[j]], axis=0)
-                gt_sem_mask = gt_sem_mask_all[j] if j==0 else np.concatenate([gt_sem_mask, gt_sem_mask_all[j]], axis=0)
-                gt_inst_mask_final = np.zeros_like(gt_instance_mask)
-                for cls_idx in self.VALID_CLASS_IDS:
-                    mask = gt_sem_mask[j] == cls_idx
-                    gt_inst_mask_final += mask.numpy()
-                gt_instance_mask[gt_inst_mask_final == 0] = -1
+        data_info = self.data_infos[idx]
+        scene_name = data_info['point_cloud']['lidar_idx']
+        out_dir = os.path.join(out_dir,scene_name)
+        mmcv.mkdir_or_exist(out_dir)
 
-                pred_instance_masks = result['instance_mask'][j]
-                pred_instance_scores = result['instance_score'][j]
+        points, gt_semantic_masks, gt_instance_masks = self._extract_data(
+                idx, load_pipeline, ['points', 'pts_semantic_mask', 'pts_instance_mask'], load_annos=True)
+        pred_instance_mask = results[idx][0][0]['instance_mask']
+        pred_instance_score = results[idx][0][0]['instance_score']
+        score_thr = 0.2
+        pred_instance_mask = pred_instance_mask.type(torch.float32)
+        pred_instance_mask[pred_instance_score < score_thr] = 0
+        pred_instance_mask[pred_instance_score > score_thr] =  pred_instance_score[pred_instance_score > 0.2].unsqueeze(1).repeat(1,pred_instance_mask.shape[1]) * pred_instance_mask[pred_instance_score > 0.2]
+        pred_instance_label = pred_instance_mask.argmax(dim=0)
+        pred_instance_label[pred_instance_mask.sum(dim=0)==0] = pred_instance_score.shape[0]
+        
+        points_show = None
+        gt_instance_masks_show = None
+        pred_instance_masks_show = None
+        
+        palette = np.random.randint(0, 256, size=(100, 3))
 
-                pred_instance_masks_sort = pred_instance_masks[pred_instance_scores.argsort()]
-                pred_instance_masks_label = pred_instance_masks_sort[0].long() - 1
-                for i in range(1, pred_instance_masks_sort.shape[0]):
-                    pred_instance_masks_label[pred_instance_masks_sort[i].bool()] = i
-
-                palette = np.random.random((max(max(pred_instance_masks_label) + 2, max(gt_instance_mask) + 2), 3)) * 255
-                palette[-1] = 255
-
-                gt_instance_mask_res.append(gt_instance_mask)
-                pred_instance_masks_label_res.append(pred_instance_masks_label)
-                palette_res.append(palette)
-
-
-            show_online_seg_result(points_res, gt_instance_mask_res,
-                            pred_instance_masks_label_res, out_dir, file_name,
-                            palette_res)
+        for i in range(len(points)):
+            points_show = points[i].numpy() if i==0 else np.concatenate([points_show, points[i].numpy()], axis = 0)
+            gt_instance_masks_show = gt_instance_masks[i*20000:(i+1)*20000].numpy().astype(np.int32) if i ==0 else np.concatenate([gt_instance_masks_show, gt_instance_masks[i*20000:(i+1)*20000].numpy()], axis=0)
+            pred_instance_masks_show = pred_instance_label[i*20000:(i+1)*20000].numpy().astype(np.int32) if i ==0 else np.concatenate([pred_instance_masks_show, pred_instance_label[i*20000:(i+1)*20000].numpy()], axis=0)
+ 
+            show_seg_result(points_show, gt_instance_masks_show, pred_instance_masks_show, out_dir, 'frame%d'%i, palette, ignore_index=None, show=True, snapshot=True)
 
 
