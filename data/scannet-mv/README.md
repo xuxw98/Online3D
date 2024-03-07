@@ -5,7 +5,9 @@ For ScanNet 2D data, the processed 2D data can be downloaded from [HERE](https:/
 
 Or you can process ScanNet 2D data yourself by following the steps below.
 
-For 2D source data, run:
+First acquire `download-scannet.py` from [HERE](https://github.com/ScanNet/ScanNet).
+
+Then download 2D data, run:
 ```
 python download-scannet.py -o <ScanNet root> --type .sens
 python download-scannet.py -o <ScanNet root> --type _2d-label.zip
@@ -21,18 +23,18 @@ Extract `_2d-label.zip` and `_2d-instance.zip` into `2D_info` folder, whose stru
 └── scenexxxx_xx_2d-instance/instance/xxxxxx.png
 ```
 
-Link the '2D_info' folder to this level of directory. 
+Link the `2D_info` folder to this level of directory. 
 
-Then Process 2D data by:
+Process 2D data by:
 ```
 python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_map_file ./meta_data/scannetv2-labels.combined.tsv --scene_index_file ./meta_data/scannet_train.txt
 ```
 
 
 **Step 2.** Download ScanNet v2 data [HERE](https://github.com/ScanNet/ScanNet). Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
-Link or move the 'scans' folder to this level of directory. 
+Link or move the `scans` folder to this level of directory. 
 
-Then generate online data by:
+Generate online data by:
 ```
 python generate_online_data.py
 ```
