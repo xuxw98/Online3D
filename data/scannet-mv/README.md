@@ -1,7 +1,7 @@
 ### Prepare ScanNet-MV data for online tuning
 
 **Step 1.** 
-For ScanNet 2D data, the processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
+Prepare ScanNet 2D data. The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
 
 Or you can process ScanNet 2D data yourself by following the steps below.
 
@@ -31,7 +31,7 @@ python prepare_2d_data.py --scannet_path ./2D_info --output_path ./2D --label_ma
 ```
 
 
-**Step 2.** Download ScanNet v2 data [HERE](https://github.com/ScanNet/ScanNet). Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
+**Step 2.** Prepare ScanNet 3D data. Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download and process the 3D data. 
 Link or move the `scans` folder to this level of directory. 
 
 Generate online data by:
