@@ -13,7 +13,7 @@ This repo contains PyTorch implementation for paper [Memory-based Adapters for O
 We propose a model and task-agnostic plug-and-play module, which converts offline 3D scene perception models (receive reconstructed point clouds) to online perception models (receive streaming RGB-D videos).
 
 ## News
-- [2023/3/x]: Code released.
+- [2023/3/07]: Code released. Paper will be uploaded to Arxiv in next week.
 - [2023/2/27]: Our paper is accepted by CVPR 2024.
 
 ## Method
@@ -36,7 +36,7 @@ For data preparation and environment setup:
 - [Prepare Dataset](docs/data.md)
 
 For training，evaluation and visualization:
-- [Train, Eval and Vis](docs/run.md)
+- [Train, Evaluation and Visualization](docs/run.md)
 
 
 ## Main Results
