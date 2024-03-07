@@ -39,7 +39,7 @@ Link or move the `scannet_frames_25k` folder to this level of directory.
 
 
 **Step 3.** Prepare ScanNet 3D data. Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download and process the 3D data.
-Link or move the 'scans' folder to this level of directory.
+Link or move the `scans` folder to this level of directory.
 
 
 Process SV data by running `python generate_18cls_gt_data.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
