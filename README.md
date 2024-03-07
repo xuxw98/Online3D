@@ -35,8 +35,8 @@ For data preparation and environment setup:
 - [Installation](docs/install.md) 
 - [Prepare Dataset](docs/data.md)
 
-For training and evaluation:
-- [Train and Eval](docs/run.md)
+For training，evaluation and visualization:
+- [Train, Eval and Vis](docs/run.md)
 
 
 ## Main Results
