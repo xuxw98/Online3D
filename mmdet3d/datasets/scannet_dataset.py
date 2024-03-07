@@ -1856,13 +1856,5 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             gt_semantic_masks_show = gt_semantic_masks[i*20000:(i+1)*20000].numpy().astype(np.int32) if i ==0 else np.concatenate([gt_semantic_masks_show, gt_semantic_masks[i*20000:(i+1)*20000].numpy()], axis=0)
             pred_semantic_masks_show = pred_semantic_mask[i*20000:(i+1)*20000].numpy().astype(np.int32) if i ==0 else np.concatenate([pred_semantic_masks_show, pred_semantic_mask[i*20000:(i+1)*20000].numpy()], axis=0)
  
-            show_seg_result(points_show,
-                    gt_semantic_masks_show,
-                    pred_semantic_masks_show,
-                    out_dir,
-                    'frame%d'%i,
-                    palette,
-                    ignore_index=20,
-                    show=True,
-                    snapshot=True)
+            show_seg_result(points_show,  gt_semantic_masks_show,  pred_semantic_masks_show, out_dir, 'frame%d'%i,  palette,  ignore_index=20, show=True,  snapshot=True)
 
