@@ -2,7 +2,7 @@
 import tempfile
 import warnings
 from os import path as osp
-
+import mmcv
 import numpy as np
 try:
     import MinkowskiEngine as ME
