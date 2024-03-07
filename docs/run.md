@@ -1,6 +1,6 @@
 Pretrained image backbone checkpoints can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Move `img_backbone.pth` and `img_backbone_sem.pth` under the directory `mmdet3d/models/backbones/`.
 
-**For online 3D semantic segmentation task:**
+**Online 3D semantic segmentation**
 
 Train and evaluate MinkUNet on ScanNet-SV:
 ```
@@ -24,7 +24,7 @@ Visualize MinkUNet (fintuned on ScanNet-MV) on ScanNet-MV:
 CUDA_VISIBLE_DEVICES=0 PORT=29544 bash ./tools/dist_test.sh configs/minkunet_online/minkunetFF_online_scannet_seg-3d-20class.py work_dirs/minkunet_online/latest.pth 1 --show-dir work_dirs/vis --eval x --show
 ```
 
-**For online 3D object detection task:**
+**Online 3D object detection**
 
 
 
@@ -45,7 +45,7 @@ Visualize FCAF3D (fintuned on ScanNet-MV) on ScanNet-MV:
 CUDA_VISIBLE_DEVICES=0 PORT=29544 bash ./tools/dist_test.sh configs/fcaf3d_online/online3dv3FF_8x2_scannet-3d-18class.py work_dirs/online3d_v3FF/latest.pth 1 --show-dir work_dirs/vis --eval x --show
 ```
 
-**For online 3D instance segmentation task:**
+**Online 3D instance segmentation**
 
 
 Train and evaluate TD3D on ScanNet-SV:
