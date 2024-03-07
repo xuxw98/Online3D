@@ -89,6 +89,21 @@ Visualization results:
 
 ![vis](./images/vis.png)
 
+## Tips
+If your GPU resources are limited, consider:
+- Remove 2D modality (img_memory or the whole img_backbone). Note that in our 3D instance segmentation experiments, we remove img_memory to avoid OOM.
+- Only insert adapters after high-level backbone features. We observe the higher the level, the better the performance of adapter, and the lower the resolution, the smaller the computation. For example, change:
+```python
+img_memory=dict(type='MultilevelImgMemory', ada_layer=(0,1,2,3))
+memory=dict(type='MultilevelMemory', vmp_layer=(0,1,2,3)),
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;To:
+```python
+img_memory=dict(type='MultilevelImgMemory', ada_layer=(2,3))
+memory=dict(type='MultilevelMemory', vmp_layer=(2,3)),
+```
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Then image and point cloud adapters will be only inserted after the highest two levels of features (for a four-level backbone).
+
 
 ## Acknowledgement
 We thank a lot for the flexible codebase of [FCAF3D](https://github.com/SamsungLabs/fcaf3d) and valuable datasets provided by [ScanNet](https://github.com/ScanNet/ScanNet) and [SceneNN](https://github.com/hkust-vgd/scenenn).
