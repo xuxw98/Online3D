@@ -5,7 +5,7 @@ For ScanNet 2D data, the processed 2D data can be downloaded from [HERE](https:/
 
 Or you can process ScanNet 2D data yourself by following the steps below.
 
-First acquire `download-scannet.py` from [HERE](https://github.com/ScanNet/ScanNet).
+First acquire `download-scannet.py` from [HERE](https://github.com/ScanNet/ScanNet). You should fill out an agreement to the ScanNet Terms of Use.
 
 Then download 2D data, run:
 ```
