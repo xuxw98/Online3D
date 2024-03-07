@@ -113,6 +113,8 @@ def parse_args():
         default='none',
         help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--scene_name', default='scene0568_00', help='scene for visualization')
+  
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
@@ -255,6 +257,7 @@ def main():
             eval_kwargs.update(dict(metric=args.eval, **kwargs))
             eval_kwargs.update(dict(out_dir=args.show_dir, **kwargs))
             eval_kwargs.update(dict(show=args.show, **kwargs))
+            eval_kwargs.update(dict(scene_name=args.scene_name, **kwargs))
             print(dataset.evaluate(outputs, **eval_kwargs))
 
 
