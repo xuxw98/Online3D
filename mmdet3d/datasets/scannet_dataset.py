@@ -714,6 +714,7 @@ class ScanNetMVDataset(Custom3DDataset):
                  logger=None,
                  show=False,
                  out_dir=None,
+                 scene_name=None,
                  pipeline=None):
         """Evaluate.
 
@@ -744,6 +745,10 @@ class ScanNetMVDataset(Custom3DDataset):
 
         gt_annos = [info['annos'] for info in self.data_infos]
         label2cat = {i: cat_id for i, cat_id in enumerate(self.CLASSES)}
+
+        if show:
+            self.show(results, out_dir, scene_name, pipeline=pipeline)
+            
         ret_dict = multiview_indoor_eval(
             gt_annos,
             results,
@@ -756,9 +761,7 @@ class ScanNetMVDataset(Custom3DDataset):
             evaluator_mode=self.evaluator_mode,
             num_slice=self.num_slice,
             len_slice=self.len_slice)
-        if show:
-            self.show(results, out_dir, pipeline=pipeline)
-
+                     
         return ret_dict
 
     @staticmethod
@@ -798,8 +801,7 @@ class ScanNetMVDataset(Custom3DDataset):
         ]
         return Compose(pipeline)
 
-    # To be modified.
-    def show(self, results, out_dir, show=True, pipeline=None):
+    def show(self, results, out_dir, scene_name=None, show=True, pipeline=None):
         """Results visualization.
 
         Args:
@@ -809,18 +811,29 @@ class ScanNetMVDataset(Custom3DDataset):
             pipeline (list[dict], optional): raw data loading for showing.
                 Default: None.
         """
+        f = open('./data/scannet-mv/meta_data/scannetv2_val.txt', 'r')
+        scene_names = f.readlines()
+        for idx in range(len(scene_names)):
+            if scene_name == scene_names[idx][:-1]:
+                break
+        assert idx < len(results), 'No expected scene in results'
         assert out_dir is not None, 'Expect out_dir, got none.'
-        pipeline = self._get_pipeline(pipeline)
-        for i, result in enumerate(results):
-            data_info = self.data_infos[i]
-            pts_path = data_info['pts_path']
-            file_name = osp.split(pts_path)[-1].split('.')[0]
-            points = self._extract_data(i, pipeline, 'points').numpy()
-            gt_bboxes = self.get_ann_info(i)['gt_bboxes_3d'].tensor.numpy()
-            pred_bboxes = result['boxes_3d'].tensor.numpy()
-            show_result(points, gt_bboxes, pred_bboxes, out_dir, file_name,
-                        show)
+        load_pipeline = self._build_default_pipeline()
+        data_info = self.data_infos[idx]
+        scene_name = data_info['point_cloud']['lidar_idx']
+        out_dir = os.path.join(out_dir,scene_name)
+        mmcv.mkdir_or_exist(out_dir)
 
+        points = self._extract_data(idx, load_pipeline, 'points').numpy()
+        gt_bboxes = self.get_ann_info(idx)['gt_bboxes_3d'].tensor.numpy()
+        score_thr = 0.5
+        pred_bboxes = results[idx][0]['boxes_3d'].tensor.numpy()
+        pred_scores = results[idx][0]['scores_3d'].numpy()
+        pred_bboxes = pred_bboxes[pred_scores > score_thr]
+
+        show_result(points, gt_bboxes, pred_bboxes, out_dir, 'frame_final',
+                    show)
+       
 
 @DATASETS.register_module()
 @SEG_DATASETS.register_module()
@@ -1639,6 +1652,7 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
                  logger=None,
                  show=False,
                  out_dir=None,
+                 scene_name=None,
                  pipeline=None):
         """Evaluate.
 
@@ -1732,6 +1746,9 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
 
             pred_sem_masks = pred_sem_masks_interpolation
             gt_sem_masks = gt_sem_masks_new
+            
+        if show:
+            self.show(results, out_dir, scene_name)
 
         ret_dict = multiview_seg_eval(
             gt_sem_masks,
@@ -1744,8 +1761,6 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             len_slice=self.len_slice,
             )
 
-        if show:
-            self.show(results, out_dir, pipeline=pipeline)
 
         return ret_dict
     
@@ -1799,7 +1814,7 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
 
     # To be modified.
 
-    def show(self, results, out_dir, show=True, pipeline=None):
+    def show(self, results, out_dir, scene_name=None, show=True, pipeline=None):
         """Results visualization.
 
         Args:
@@ -1809,18 +1824,45 @@ class ScanNetMVSegDataset(Custom3DSegDataset):
             pipeline (list[dict], optional): raw data loading for showing.
                 Default: None.
         """
+        f = open('./data/scannet-mv/meta_data/scannetv2_val.txt', 'r')
+        scene_names = f.readlines()
+        for idx in range(len(scene_names)):
+            if scene_name == scene_names[idx][:-1]:
+                break
+        assert idx < len(results), 'No expected scene in results'
         assert out_dir is not None, 'Expect out_dir, got none.'
-        pipeline = self._get_pipeline(pipeline)
-        for i, result in enumerate(results):
-            data_info = self.data_infos[i]
-            pts_path = data_info['pts_path']
-            file_name = osp.split(pts_path)[-1].split('.')[0]
-            points, gt_sem_mask = self._extract_data(
-                i, pipeline, ['points', 'pts_semantic_mask'], load_annos=True)
-            points = points.numpy()
-            pred_sem_mask = result['semantic_mask'].numpy()
-            show_seg_result(points, gt_sem_mask,
-                            pred_sem_mask, out_dir, file_name,
-                            np.array(self.PALETTE), self.ignore_index, show)
+        load_pipeline = self._build_default_pipeline()
+        data_info = self.data_infos[idx]
+        scene_name = data_info['point_cloud']['lidar_idx']
+        out_dir = os.path.join(out_dir,scene_name)
+        mmcv.mkdir_or_exist(out_dir)
 
+            
+        points, gt_semantic_masks = self._extract_data(
+                idx, load_pipeline, ['points', 'pts_semantic_mask'], load_annos=True)
+        
+        
+        pred_semantic_mask = results[idx]['semantic_mask']
+        
+        points_show = None
+        gt_semantic_masks_show = None
+        pred_semantic_masks_show = None
+        
+        palette = np.array(self.PALETTE)
+
+        
+        for i in range(len(points)):
+            points_show = points[i].numpy() if i==0 else np.concatenate([points_show, points[i].numpy()], axis = 0)
+            gt_semantic_masks_show = gt_semantic_masks[i*20000:(i+1)*20000].numpy().astype(np.int32) if i ==0 else np.concatenate([gt_semantic_masks_show, gt_semantic_masks[i*20000:(i+1)*20000].numpy()], axis=0)
+            pred_semantic_masks_show = pred_semantic_mask[i*20000:(i+1)*20000].numpy().astype(np.int32) if i ==0 else np.concatenate([pred_semantic_masks_show, pred_semantic_mask[i*20000:(i+1)*20000].numpy()], axis=0)
+ 
+            show_seg_result(points_show,
+                    gt_semantic_masks_show,
+                    pred_semantic_masks_show,
+                    out_dir,
+                    'frame%d'%i,
+                    palette,
+                    ignore_index=20,
+                    show=True,
+                    snapshot=True)
 
