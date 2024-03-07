@@ -33,14 +33,16 @@ python download-scannet.py -o <ScanNet root> --preprocessed_frames
 ``` 
 
 Link or move the 'scannet_frames_25k' folder to this level of directory.
-Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
+
+
+**Step 3.** Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
 Link or move the 'scans' folder to this level of directory.
 
 
 Then process SV data by running `python generate_18cls_gt_data.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
 
 
-**Step 3.** Generate .pkl files by:
+**Step 4.** Generate .pkl files by:
 ```
 python tools/create_data.py scannet --root-path ./data/scannet-sv --out-dir ./data/scannet-sv --extra-tag scannet_sv
 ```
