@@ -2,44 +2,47 @@
 
 
 **Step 1.** 
-For ScanNet 2D data, the processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
+Prepare ScanNet 2D data. The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
 
 Or you can process ScanNet 2D data yourself by following the steps below.
-For 2D instance source data, run:
+
+First acquire `download-scannet.py` from [HERE](https://github.com/ScanNet/ScanNet). You should fill out an agreement to the ScanNet Terms of Use.
+
+Then download 2D instance data, run:
 ```
 python download-scannet.py -o <ScanNet root> --type _2d-instance.zip
 ``` 
 
-Then extract `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
+Extract `_2d-instance.zip` into `2D_info` folder, whose structure follows: 
 
 ```
 2D_info
 └── scenexxxx_xx_2d-instance/instance/xxxxxx.png
 ```
 
-Link the '2D_info' folder to this level of directory. 
+Link the `2D_info` folder to this level of directory. 
 
 
-Then process 2D instance data by:
+Process 2D instance data by:
 ```
 python prepare_2d_ins.py --scannet_path ./2D_info --output_path ./2D --scene_index_file ./meta_data/scannet_train.txt
 ```
 
 
-**Step 2.** For scannet_frames_25k data, run: 
+**Step 2.** Prepare scannet_frames_25k data, run: 
 
 ```
 python download-scannet.py -o <ScanNet root> --preprocessed_frames 
 ``` 
 
-Link or move the 'scannet_frames_25k' folder to this level of directory.
+Link or move the `scannet_frames_25k` folder to this level of directory.
 
 
-**Step 3.** Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download 3D data. 
+**Step 3.** Prepare ScanNet 3D data. Follow [votenet](https://github.com/facebookresearch/votenet/tree/main/scannet) to download and process the 3D data.
 Link or move the 'scans' folder to this level of directory.
 
 
-Then process SV data by running `python generate_18cls_gt_data.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
+Process SV data by running `python generate_18cls_gt_data.py`, which will create two folders named `scannet_sv_18cls_train` and `scannet_sv_18cls_val` here.
 
 
 **Step 4.** Generate .pkl files by:
