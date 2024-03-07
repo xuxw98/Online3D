@@ -4,8 +4,8 @@ The processed SceneNN data can be downloaded from [HERE](https://cloud.tsinghua.
 
 ### Prepare SceneNN-MV data for semantic segmentation test
 
-**Step 1.** Download SceneNN oni data [HERE](https://hkust-vgd.ust.hk/scenenn/main/oni/). Then download ply data, xml data and trajectory data [HERE](https://drive.google.com/drive/folders/0B2BQi-ql8CzecGxSeXNzYWNZQUk?resourcekey=0-0zdk0kE0OD1Vp848__ZTdQ).
-The data of the scene is structured as follows:
+**Step 1.** Download SceneNN `oni` data from [HERE](https://hkust-vgd.ust.hk/scenenn/main/oni/). Then download `.ply` data, `.xml` data and `trajectory.log` data from [HERE](https://drive.google.com/drive/folders/0B2BQi-ql8CzecGxSeXNzYWNZQUk?resourcekey=0-0zdk0kE0OD1Vp848__ZTdQ).
+The data of each scene is structured as follows:
 
 ```
 SceneNN
@@ -21,10 +21,10 @@ For simplicity and representativeness, we select 12 highly comprehensive and obj
 
 
 **Step 2.** 
-Process oni data by using the tool in the playback folder [HERE](https://github.com/hkust-vgd/scenenn).
+Process `oni` data by using the tool in the playback folder [HERE](https://github.com/hkust-vgd/scenenn).
 
 
-**Step 3.** Generate other online data by:
+**Step 3.** Process online data by:
 ```
 python data_process.py
 ```
