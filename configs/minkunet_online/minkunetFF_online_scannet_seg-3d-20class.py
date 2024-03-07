@@ -17,7 +17,7 @@ evaluator_mode = 'slice_num_constant'
 num_slice = 1
 len_slice = 5
 
-load_from = "work_dirs/minkunet_svFF_onecycle_lr0.0008/latest.pth"
+load_from = "work_dirs/minkunet_svFF/latest.pth"
 
 
 model = dict(type='MinkUnetSemsegFF_Online',
