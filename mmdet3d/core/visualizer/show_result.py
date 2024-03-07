@@ -194,7 +194,6 @@ def show_seg_result(points,
     if show:
         from .open3d_vis import Visualizer
         mode = 'xyzrgb' if points.shape[1] == 6 else 'xyz'
-        pdb.set_trace()
         vis = Visualizer(points, mode=mode)
         if gt_seg is not None:
             vis.add_seg_mask(gt_seg_color)
