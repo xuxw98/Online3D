@@ -96,9 +96,6 @@ def show_result(points,
         pred_labels (np.ndarray, optional): Predicted labels of boxes.
             Defaults to None.
     """
-    result_path = osp.join(out_dir, filename)
-    mmcv.mkdir_or_exist(result_path)
-
     if show:
         from .open3d_vis import Visualizer
 
@@ -120,29 +117,31 @@ def show_result(points,
                         bbox3d=np.array(labelDict[i]),
                         bbox_color=palette[i],
                         points_in_box_color=palette[i])
-
+        show_path = osp.join(out_dir,
+                             f'{filename}_pred.png') if snapshot else None
+        vis.show(show_path)
         if gt_bboxes is not None:
             vis.add_bboxes(bbox3d=gt_bboxes, bbox_color=(0, 0, 1))
-        show_path = osp.join(result_path,
-                             f'{filename}_online.png') if snapshot else None
+        show_path = osp.join(out_dir,
+                             f'{filename}_gt.png') if snapshot else None
         vis.show(show_path)
 
     if points is not None:
-        _write_obj(points, osp.join(result_path, f'{filename}_points.obj'))
+        _write_obj(points, osp.join(out_dir, f'{filename}_points.obj'))
 
     if gt_bboxes is not None:
         # bottom center to gravity center
         gt_bboxes[..., 2] += gt_bboxes[..., 5] / 2
 
         _write_oriented_bbox(gt_bboxes,
-                             osp.join(result_path, f'{filename}_gt.obj'))
+                             osp.join(out_dir, f'{filename}_gt.obj'))
 
     if pred_bboxes is not None:
         # bottom center to gravity center
         pred_bboxes[..., 2] += pred_bboxes[..., 5] / 2
 
         _write_oriented_bbox(pred_bboxes,
-                             osp.join(result_path, f'{filename}_pred.obj'))
+                             osp.join(out_dir, f'{filename}_pred.obj'))
 
 
 def show_seg_result(points,
@@ -181,7 +180,6 @@ def show_seg_result(points,
         if pred_seg is not None:
             pred_seg = pred_seg[gt_seg != ignore_index]
         gt_seg = gt_seg[gt_seg != ignore_index]
-
     if gt_seg is not None:
         gt_seg_color = palette[gt_seg]
         gt_seg_color = np.concatenate([points[:, :3], gt_seg_color], axis=1)
@@ -190,32 +188,35 @@ def show_seg_result(points,
         pred_seg_color = np.concatenate([points[:, :3], pred_seg_color],
                                         axis=1)
 
-    result_path = osp.join(out_dir, filename)
-    mmcv.mkdir_or_exist(result_path)
 
     # online visualization of segmentation mask
     # we show three masks in a row, scene_points, gt_mask, pred_mask
     if show:
         from .open3d_vis import Visualizer
         mode = 'xyzrgb' if points.shape[1] == 6 else 'xyz'
+        pdb.set_trace()
         vis = Visualizer(points, mode=mode)
         if gt_seg is not None:
             vis.add_seg_mask(gt_seg_color)
+        show_path = osp.join(out_dir,
+                             f'{filename}_gt.png') if snapshot else None
+        vis.show(show_path)
         if pred_seg is not None:
             vis.add_seg_mask(pred_seg_color)
-        show_path = osp.join(result_path,
-                             f'{filename}_online.png') if snapshot else None
+        show_path = osp.join(out_dir,
+                             f'{filename}_pred.png') if snapshot else None
         vis.show(show_path)
 
     if points is not None:
-        _write_obj(points, osp.join(result_path, f'{filename}_points.obj'))
+        _write_obj(points, osp.join(out_dir, f'{filename}_points.obj'))
 
     if gt_seg is not None:
-        _write_obj(gt_seg_color, osp.join(result_path, f'{filename}_gt.obj'))
+        _write_obj(gt_seg_color, osp.join(out_dir, f'{filename}_gt.obj'))
 
     if pred_seg is not None:
-        _write_obj(pred_seg_color, osp.join(result_path,
+        _write_obj(pred_seg_color, osp.join(out_dir,
                                             f'{filename}_pred.obj'))
+
 
 
 def show_online_seg_result(points_all,
