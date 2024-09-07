@@ -257,7 +257,8 @@ def main():
             eval_kwargs.update(dict(metric=args.eval, **kwargs))
             eval_kwargs.update(dict(out_dir=args.show_dir, **kwargs))
             eval_kwargs.update(dict(show=args.show, **kwargs))
-            eval_kwargs.update(dict(scene_name=args.scene_name, **kwargs))
+            if args.show:
+                eval_kwargs.update(dict(scene_name=args.scene_name, **kwargs))
             print(dataset.evaluate(outputs, **eval_kwargs))
 
 
