@@ -58,40 +58,14 @@ class SingleStageSparse3DDetector(Base3DDetector):
         return losses
 
     def simple_test(self, points, img_metas, imgs=None, rescale=False):
-        """Test function without augmentaiton."""
-        # self.view_model_param()
+               """Test function without augmentaiton."""
 
-        timestamps = []
-        if self.evaluator_mode == 'slice_len_constant':
-            i=1
-            while i*self.len_slice<len(points[0]):
-                timestamps.append(i*self.len_slice)
-                i=i+1
-            timestamps.append(len(points[0]))
-        else:
-            num_slice = min(len(points[0]),self.num_slice)
-            for i in range(1,num_slice):
-                timestamps.append(i*(len(points[0])//num_slice))
-            timestamps.append(len(points[0]))
-
-        # Process
-        bbox_results = [[]]
-        depth2img = img_metas[0]['depth2img']
-
-        for i in range(len(timestamps)):
-            if i == 0:
-                ts_start, ts_end = 0, timestamps[i]
-            else:
-                ts_start, ts_end = timestamps[i-1], timestamps[i]
-                
-
-            points_new = [points[0][ts_start:ts_end,:,:].reshape(-1,points[0].shape[-1])]
-            x = self.extract_feat(points_new, img_metas)
-            bbox_list = self.neck_with_head.get_bboxes(*x, img_metas, rescale=rescale)
-            bboxes, scores, labels = bbox_list[0]
-            for j in range(ts_start, ts_end):
-                bbox_results[0].append(bbox3d2result(bboxes, scores, labels))
-                
+        x = self.extract_feat([points[0]], torch.stack([img[0]], dim=0), img_metas)
+        bbox_list = self.neck_with_head.get_bboxes(*x, img_metas, rescale=rescale)
+        bbox_results = [
+            bbox3d2result(bboxes, scores, labels)
+            for bboxes, scores, labels in bbox_list
+        ]
         return bbox_results
 
     def aug_test(self, points, img_metas, imgs=None, rescale=False):
