@@ -235,38 +235,11 @@ class MinkUnetSemseg(Base3DDetector):
     def simple_test(self, points, img_metas, *args, **kwargs):
         """Test without augmentations.
         """
-
-        timestamps = []
-        if self.evaluator_mode == 'slice_len_constant':
-            i=1
-            while i*self.len_slice<len(points[0]):
-                timestamps.append(i*self.len_slice)
-                i=i+1
-            timestamps.append(len(points[0]))
-        else:
-            num_slice = min(len(points[0]),self.num_slice)
-            for i in range(1,num_slice):
-                timestamps.append(i*(len(points[0])//num_slice))
-            timestamps.append(len(points[0]))
-
-        # Process
-        semseg_results = []
-
-        for i in range(len(timestamps)):
-            if i == 0:
-                ts_start, ts_end = 0, timestamps[i]
-            else:
-                ts_start, ts_end = timestamps[i-1], timestamps[i]
-            sem_result = []
-
-            points_new = [points[0][ts_start:ts_end,:,:].reshape(-1,points[0].shape[-1])]
-            field = self.collate(points_new, ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
-            x = self.extract_feat(field.sparse(), img_metas)
-            
-            preds = self.head.forward_test(x, field, img_metas)
-            semseg_results.append(preds.cpu())
+        field = self.collate(points, ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+        x = self.extract_feat(field.sparse(), img_metas)
         
-        results = [dict(semantic_mask=torch.cat(semseg_results,dim=0))]       
+        preds = self.head.forward_test(x, field, img_metas)
+        results = [dict(semantic_mask=preds[0].cpu())]
         return results
 
     def aug_test(self, points, img_metas, **kwargs):
