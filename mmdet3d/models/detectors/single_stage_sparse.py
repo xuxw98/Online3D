@@ -59,8 +59,7 @@ class SingleStageSparse3DDetector(Base3DDetector):
 
     def simple_test(self, points, img_metas, imgs=None, rescale=False):
                """Test function without augmentaiton."""
-
-        x = self.extract_feat([points[0]], torch.stack([img[0]], dim=0), img_metas)
+        x = self.extract_feat([points[0]], img_metas)
         bbox_list = self.neck_with_head.get_bboxes(*x, img_metas, rescale=rescale)
         bbox_results = [
             bbox3d2result(bboxes, scores, labels)
