@@ -124,44 +124,17 @@ class TD3DInstanceSegmentor(Base3DDetector):
         Returns:
             list[dict]: Predicted 3d instances.
         """
-        timestamps = []
-        if self.evaluator_mode == 'slice_len_constant':
-            i=1
-            while i*self.len_slice<len(points[0]):
-                timestamps.append(i*self.len_slice)
-                i=i+1
-            timestamps.append(len(points[0]))
-        else:
-            num_slice = min(len(points[0]),self.num_slice)
-            for i in range(1,num_slice):
-                timestamps.append(i*(len(points[0])//num_slice))
-            timestamps.append(len(points[0]))
-
-        # Process
-        depth2img = img_metas[0]['depth2img']
-        instances_results = [[]]
-
-
-        for i in range(len(timestamps)):
-            if i == 0:
-                ts_start, ts_end = 0, timestamps[i]
-            else:
-                ts_start, ts_end = timestamps[i-1], timestamps[i]
-            bbox_data_list = []
-                
-            points_new = [points[0][ts_start:ts_end,:,:].reshape(-1,points[0].shape[-1])]
-            field = self.collate(points_new, ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
-            x = self.extract_feat(field.sparse())
-            
-            instances = self.head.forward_test(x, field, img_metas)
-            results = []
-            for mask, label, score in instances:
-                results.append(dict(
-                    instance_mask=mask.cpu(),
-                    instance_label=label.cpu(),
-                    instance_score=score.cpu()))
-            instances_results[0].append(results)
-        return instances_results
+        field = self.collate(points, ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+        x = self.extract_feat(field.sparse(), img_metas)
+        
+        instances = self.head.forward_test(x, field, img_metas)
+        results = []
+        for mask, label, score in instances:
+            results.append(dict(
+                instance_mask=mask.cpu(),
+                instance_label=label.cpu(),
+                instance_score=score.cpu()))
+        return results
 
     def aug_test(self, points, img_metas, **kwargs):
         """Test with augmentations.
