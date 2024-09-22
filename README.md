@@ -47,24 +47,24 @@ We provide the checkpoints for quick reproduction of the results reported in the
  Method | Type | Dataset | mIou | mAcc | Downloads 
  | :--------------: | :----: | :----: | :----: |:----: |:----: |
  MkNet | Offline | ScanNet |71.6 | 80.4 | -
- MkNet-SV | Online | ScanNet |68.8 | 77.7 | [model](https://cloud.tsinghua.edu.cn/f/e80eeea97e684a75af05/?dl=1)
- MkNet-SV + Ours | Online | ScanNet |72.7 | 84.1 | [model](https://cloud.tsinghua.edu.cn/f/e271e43d2a934a4da490/?dl=1)
- MkNet-SV | Online | SceneNN |48.4 | 61.2 | [model](https://cloud.tsinghua.edu.cn/f/e80eeea97e684a75af05/?dl=1)
- MkNet-SV + Ours | Online | SceneNN |56.7 | 70.1 | [model](https://cloud.tsinghua.edu.cn/f/e271e43d2a934a4da490/?dl=1)
+ MkNet-SV | Online | ScanNet |68.8 | 77.7 | [model](https://cloud.tsinghua.edu.cn/f/fada43a9f0c14e79ac30/?dl=1)
+ MkNet-SV + Ours | Online | ScanNet |72.7 | 84.1 | [model](https://cloud.tsinghua.edu.cn/f/5a73056b11a346d5a0ad/?dl=1)
+ MkNet-SV | Online | SceneNN |48.4 | 61.2 | [model](https://cloud.tsinghua.edu.cn/f/fada43a9f0c14e79ac30/?dl=1)
+ MkNet-SV + Ours | Online | SceneNN |56.7 | 70.1 | [model](https://cloud.tsinghua.edu.cn/f/5a73056b11a346d5a0ad/?dl=1)
 
 3D object detection on ScanNet:
  Method | Type |  mAP@25 | mAP@50 | Downloads 
  | :--------------: |  :----: | :----: |:----: |:----: |
  FCAF3D | Offline | 70.7 | 56.0 | -
- FCAF3D-SV | Online | 41.9 | 20.6 | [model](https://cloud.tsinghua.edu.cn/f/ff974cb9c4764b19bda6/?dl=1)
- FCAF3D-SV + Ours | Online |70.5 | 49.9 | [model](https://cloud.tsinghua.edu.cn/f/8c9647fad3bd4ee99bcc/?dl=1)
+ FCAF3D-SV | Online | 41.9 | 20.6 | [model](https://cloud.tsinghua.edu.cn/f/d87c8f18f9c3490b983d/?dl=1)
+ FCAF3D-SV + Ours | Online |70.5 | 49.9 | [model](https://cloud.tsinghua.edu.cn/f/9a7444e183a64abaae00/?dl=1)
 
  3D instance segmentation on ScanNet:
  Method | Type |  mAP@25 | mAP@50 | Downloads 
  | :--------------: | :----: | :----: |:----: |:----: |
  TD3D | Offline |81.3 | 71.1 | -
- TD3D-SV | Online|53.7 | 36.8 | [model](https://cloud.tsinghua.edu.cn/f/0666d3cf263941d8b3e5/?dl=1)
- TD3D-SV + Ours | Online | 71.3 | 60.5 | [model](https://cloud.tsinghua.edu.cn/f/d95e96f55c93494ea14b/?dl=1)
+ TD3D-SV | Online|53.7 | 36.8 | [model](https://cloud.tsinghua.edu.cn/f/aa7155bbc58840a697bb/?dl=1)
+ TD3D-SV + Ours | Online | 71.3 | 60.5 | [model](https://cloud.tsinghua.edu.cn/f/438ebd22f9524d2daade/?dl=1)
 
 <!--
  Here is the performance of different 3D scene perception methods on ScanNet online benchmark. We report mIoU / mAcc, mAP@25 /
