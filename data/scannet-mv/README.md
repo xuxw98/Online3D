@@ -1,7 +1,7 @@
 ### Prepare ScanNet-MV data for online tuning
 
 **Step 1.** 
-Prepare ScanNet 2D data. The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
+Prepare ScanNet 2D data. The processed 2D data can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/f9dc0ae45f2f4666a209/). Run `cat 2D.tar.* > 2D.tar` to merge the files. Then skip to Step 2.
 
 Or you can process ScanNet 2D data yourself by following the steps below.
 
