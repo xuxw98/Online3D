@@ -1,4 +1,4 @@
-Pretrained image backbone checkpoints can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/641cd2b7a123467d98a6/). Move `img_backbone.pth` and `img_backbone_sem.pth` under the directory `mmdet3d/models/backbones/`.
+Pretrained image backbone checkpoints can be downloaded from [HERE](https://cloud.tsinghua.edu.cn/d/55ab55e8035842979a1e/). Move `img_backbone.pth` and `img_backbone_sem.pth` under the directory `mmdet3d/models/backbones/`.
 
 **Online 3D semantic segmentation**
 
