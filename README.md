@@ -13,8 +13,9 @@ This repo contains PyTorch implementation for paper [Memory-based Adapters for O
 We propose a model and task-agnostic plug-and-play module, which converts offline 3D scene perception models (receive reconstructed point clouds) to online perception models (receive streaming RGB-D videos).
 
 ## News
-- [2023/3/07]: Code released. Paper will be uploaded to Arxiv in next week.
-- [2023/2/27]: Our paper is accepted by CVPR 2024.
+- [2025/2/11]: Check out our recent work [EmbodiedSAM](https://github.com/xuxw98/ESAM) (ICLR'25 Oral), an online and real-time 3D segmentation anything model!
+- [2024/3/07]: Code released. Paper will be uploaded to Arxiv in next week.
+- [2024/2/27]: Our paper is accepted by CVPR 2024.
 
 ## Method
 Overall pipeline of our work:
